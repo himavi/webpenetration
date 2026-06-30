@@ -34,15 +34,30 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove wget \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Install Nikto web scanner + WeasyPrint native libs (for PDF reports) ---
+# --- WeasyPrint native libraries (for PDF report rendering) ---
+# Pango pulls in harfbuzz, fontconfig, cairo, glib and libffi as dependencies,
+# so the explicit list stays minimal and avoids the t64-renamed package names
+# that are not present on the trixie-based slim image.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        nikto \
         libpango-1.0-0 \
         libpangoft2-1.0-0 \
-        libharfbuzz0b \
-        libffi8 \
         fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Install Nikto from source ---
+# Debian trixie no longer packages nikto, so install it from the upstream repo
+# and expose it on PATH via a small wrapper (running nikto.pl by its real path
+# lets Perl's FindBin locate its config/plugins). perl, libnet-ssleay-perl (TLS)
+# and the JSON / XML::Writer modules (output formats) remain as runtime deps.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git perl libnet-ssleay-perl libjson-perl libxml-writer-perl \
+    && git clone --depth 1 https://github.com/sullo/nikto /opt/nikto \
+    && chmod +x /opt/nikto/program/nikto.pl \
+    && printf '#!/bin/sh\nexec perl /opt/nikto/program/nikto.pl "$@"\n' > /usr/local/bin/nikto \
+    && chmod +x /usr/local/bin/nikto \
+    && apt-get purge -y --auto-remove git \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Install Semgrep for SAST ---
