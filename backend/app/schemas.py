@@ -9,7 +9,7 @@ ever deal with this one shape regardless of which engine produced the data.
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models import ReportFormat, ScanStatus, ScanType, Severity
 
@@ -56,6 +56,47 @@ class FindingRead(BaseModel):
     created_at: datetime
 
 
+class ScanCreate(BaseModel):
+    """Payload to submit a new scan.
+
+    ``authorized`` is a required consent acknowledgment: the request is rejected
+    (HTTP 422) when it is missing or not exactly ``true``. This is the
+    lightweight consent gate that must pass before any scan is queued.
+    """
+
+    target: str = Field(min_length=1, max_length=2048)
+    scan_type: ScanType = ScanType.DAST
+    authorized: bool = Field(
+        description="Must be true to confirm you are authorized to test this target.",
+    )
+
+    @field_validator("target")
+    @classmethod
+    def _clean_target(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("target must not be empty")
+        return value
+
+    @field_validator("authorized")
+    @classmethod
+    def _require_consent(cls, value: bool) -> bool:
+        if value is not True:
+            raise ValueError(
+                "authorization is required: set 'authorized' to true to confirm "
+                "you have permission to test this target"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _dast_target_must_be_url(self) -> "ScanCreate":
+        if self.scan_type == ScanType.DAST and not self.target.lower().startswith(
+            ("http://", "https://")
+        ):
+            raise ValueError("a DAST target must be an http:// or https:// URL")
+        return self
+
+
 class ScanRead(BaseModel):
     """A persisted scan as returned by the API."""
 
@@ -65,6 +106,8 @@ class ScanRead(BaseModel):
     target: str
     scan_type: ScanType
     status: ScanStatus
+    progress: int
+    message: Optional[str] = None
     created_at: datetime
     finished_at: Optional[datetime] = None
 

@@ -81,6 +81,8 @@ class Scan(SQLModel, table=True):
         default=ScanStatus.QUEUED,
         sa_column=_enum_column(ScanStatus, nullable=False, index=True),
     )
+    progress: int = Field(default=0)
+    message: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
     finished_at: Optional[datetime] = Field(default=None)
 
