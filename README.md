@@ -184,6 +184,7 @@ npm test
 | `GROQ_API_KEY` | backend | _(unset)_ | Optional. Enables AI explanations via Groq (primary). Read from env only. |
 | `GEMINI_API_KEY` | backend | _(unset)_ | Optional. Enables AI explanations via Gemini (alternative). Used if no Groq key. |
 | `MAX_UPLOAD_SIZE` | backend | `52428800` | Max source-zip upload size in bytes (50 MB). |
+| `DEMO_MODE` | backend | `0` | Set to `1` to restrict scanning to the bundled Juice Shop and seed sample reports on startup. |
 | `VITE_API_BASE_URL` | frontend | _(empty)_ | Override the backend origin. Empty means same-origin requests through the dev/nginx proxy. |
 
 > **AI explanations are optional.** With no `GROQ_API_KEY` or `GEMINI_API_KEY`
@@ -204,5 +205,76 @@ npm test
 10. **AI explanation service (Groq/Gemini + fallback)** *(done)*
 11. **Report generation (HTML / PDF / JSON)** *(done)*
 12. **Full frontend integration** *(done)*
-13. Safe demo mode + bundled vulnerable target + scope allowlist
-14. Free deployment + docs
+13. **Safe demo mode + bundled vulnerable target** *(done)*
+14. **Free deployment + docs** *(done)*
+
+## Demo mode
+
+Demo mode restricts the app so it can be safely exposed to the public internet
+(e.g., for recruiters to try). When enabled:
+
+- Scanning is limited to the bundled **OWASP Juice Shop** target only — external
+  URLs are rejected with HTTP 403.
+- A sample completed scan with findings and reports is seeded on first startup,
+  so a visitor can immediately view a professional report without running a scan.
+- The frontend shows a demo banner and pre-fills the Juice Shop URL.
+
+**Enable demo mode:**
+
+```bash
+# Full stack with demo restrictions:
+docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build
+
+# Or just set the env var on the backend:
+DEMO_MODE=1
+```
+
+## Deployment
+
+### Local (full power)
+
+```bash
+docker compose up --build
+# open http://localhost:8080
+```
+
+All engines run with no restrictions. Add `GROQ_API_KEY` or `GEMINI_API_KEY` to
+`docker-compose.yml` (or a `.env` file) for AI-powered explanations; without
+them the built-in templates still produce clear findings.
+
+### Free hosted demo (Hugging Face Spaces / Railway / Render)
+
+The app is designed to run in a single container for free-tier platforms:
+
+1. **Build the backend image** — it includes all engines (nuclei, sqlmap, nikto,
+   semgrep) and serves the API.
+2. **Set `DEMO_MODE=1`** as an environment variable (secrets panel on HF Spaces
+   or Railway).
+3. **Frontend** — either serve from the same container by adding a static file
+   mount, or deploy to Vercel/Netlify for free (set `VITE_API_BASE_URL` to the
+   backend URL).
+4. The Juice Shop target won't be available on most free tiers (it needs its own
+   container), so the seeded sample reports provide the instant demo experience.
+
+**Hugging Face Spaces (Docker):**
+
+```dockerfile
+# Use the existing backend Dockerfile; HF Spaces exposes port 7860 by default.
+# Add to the CMD: --port 7860
+# Set secrets: DEMO_MODE=1
+```
+
+**Environment variables for hosted deploy:**
+
+| Variable | Value | Purpose |
+| --- | --- | --- |
+| `DEMO_MODE` | `1` | Enables safe restrictions |
+| `GROQ_API_KEY` | _(optional)_ | AI explanations (set in secrets) |
+| `ALLOWED_ORIGINS` | your frontend URL | CORS |
+
+### Security notes for deployment
+
+- The app performs **active scanning** which sends attack payloads to targets.
+  Never expose it without `DEMO_MODE=1` unless you control the network.
+- API keys are read from environment variables only and never logged or stored.
+- The SQLite database is ephemeral on most free platforms; this is fine for demos.

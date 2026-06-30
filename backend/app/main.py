@@ -43,8 +43,10 @@ class HealthResponse(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create database tables on startup (idempotent)."""
+    """Create database tables on startup (idempotent) and seed demo data."""
     init_db()
+    from app.demo import seed_sample_data
+    seed_sample_data()
     yield
 
 
@@ -76,6 +78,16 @@ app.include_router(dev.router)
 def health() -> HealthResponse:
     """Liveness/readiness probe used by the frontend and container healthcheck."""
     return HealthResponse(status="ok", service=SERVICE_NAME, version=APP_VERSION)
+
+
+@app.get("/api/config", tags=["system"])
+def config() -> dict:
+    """Return public configuration for the frontend (demo mode, allowed target)."""
+    from app.demo import DEMO_MODE
+    return {
+        "demo_mode": DEMO_MODE,
+        "demo_target": "http://juiceshop:3000" if DEMO_MODE else None,
+    }
 
 
 @app.get("/", tags=["system"])

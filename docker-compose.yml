@@ -7,6 +7,9 @@ services:
     environment:
       # Origins allowed to call the API directly (the nginx proxy is same-origin).
       - ALLOWED_ORIGINS=http://localhost:8080,http://localhost:5173
+      # Demo mode: restrict scanning to the bundled Juice Shop target only.
+      # Set to 0 or remove for unrestricted (local/private) use.
+      - DEMO_MODE=0
       # Nuclei tuning: time-box the scan and focus on fast, broadly-applicable
       # template tags so the demo stays quick. Clear NUCLEI_TAGS for a full scan.
       - NUCLEI_TIMEOUT=90
@@ -40,6 +43,12 @@ services:
       -config api.addrs.addr.regex=true
     expose:
       - "8090"
+
+  # Bundled vulnerable target for safe demo scanning.
+  juiceshop:
+    image: bkimminich/juice-shop:latest
+    expose:
+      - "3000"
 
   frontend:
     build: ./frontend

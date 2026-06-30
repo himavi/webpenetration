@@ -13,6 +13,12 @@ export async function fetchHealth() {
   return response.json()
 }
 
+export async function fetchConfig() {
+  const response = await fetch(`${API_BASE_URL}/api/config`)
+  if (!response.ok) return { demo_mode: false, demo_target: null }
+  return response.json()
+}
+
 // Pull a human-readable message out of a FastAPI error body, which is either
 // { detail: "..." } or { detail: [{ msg, loc }, ...] }.
 function describeError(data, fallback) {

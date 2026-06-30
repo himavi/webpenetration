@@ -1,0 +1,7 @@
+# Demo mode override: restricts scanning to the bundled Juice Shop target,
+# seeds sample reports, and disables external URL scanning.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build
+services:
+  backend:
+    environment:
+      - DEMO_MODE=1

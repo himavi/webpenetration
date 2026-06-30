@@ -27,6 +27,14 @@ _SEVERITY_RANK = {
 @router.post("/scans", response_model=ScanRead, status_code=status.HTTP_201_CREATED)
 async def create_scan(payload: ScanCreate, session: Session = Depends(get_session)) -> ScanRead:
     """Create a queued scan (consent already validated) and kick off the runner."""
+    from app.demo import is_target_allowed
+
+    if not is_target_allowed(payload.target):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Demo mode: scanning is restricted to the bundled Juice Shop target (http://juiceshop:3000).",
+        )
+
     scan = Scan(
         target=payload.target,
         scan_type=payload.scan_type,

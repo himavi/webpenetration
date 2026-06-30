@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const SCAN_TYPES = [
   { value: 'dast', label: 'Dynamic — live URL (DAST)' },
@@ -6,12 +6,17 @@ const SCAN_TYPES = [
   { value: 'both', label: 'Both — URL + source upload' },
 ]
 
-export default function ScanForm({ onSubmit, busy = false }) {
-  const [target, setTarget] = useState('')
+export default function ScanForm({ onSubmit, busy = false, demoTarget = null }) {
+  const [target, setTarget] = useState(demoTarget || '')
   const [scanType, setScanType] = useState('dast')
   const [authorized, setAuthorized] = useState(false)
   const [file, setFile] = useState(null)
   const fileRef = useRef(null)
+
+  // Update target if demoTarget arrives after initial render.
+  useEffect(() => {
+    if (demoTarget && !target) setTarget(demoTarget)
+  }, [demoTarget])
 
   const needsUrl = scanType === 'dast' || scanType === 'both'
   const needsFile = scanType === 'sast' || scanType === 'both'

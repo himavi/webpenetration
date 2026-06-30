@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { createScan, fetchHealth, getFindings, subscribeScan } from './api.js'
+import { createScan, fetchConfig, fetchHealth, getFindings, subscribeScan } from './api.js'
 import ResultsDashboard from './components/ResultsDashboard.jsx'
 import ScanForm from './components/ScanForm.jsx'
 import ScanProgress from './components/ScanProgress.jsx'
@@ -19,6 +19,7 @@ const HEALTH_LABELS = {
 
 export default function App() {
   const [health, setHealth] = useState(Health.LOADING)
+  const [config, setConfig] = useState({ demo_mode: false, demo_target: null })
   const [scan, setScan] = useState(null)
   const [findings, setFindings] = useState(null)
   const [findingsLoading, setFindingsLoading] = useState(false)
@@ -35,6 +36,9 @@ export default function App() {
       .catch(() => {
         if (!cancelled) setHealth(Health.UNHEALTHY)
       })
+    fetchConfig()
+      .then((cfg) => { if (!cancelled) setConfig(cfg) })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -87,10 +91,12 @@ export default function App() {
       </header>
 
       <p className="app__notice">
-        Authorized testing only — scan systems you own or have explicit permission to test.
+        {config.demo_mode
+          ? 'Demo mode — scanning is restricted to the bundled Juice Shop target.'
+          : 'Authorized testing only — scan systems you own or have explicit permission to test.'}
       </p>
 
-      <ScanForm onSubmit={handleSubmit} busy={submitting} />
+      <ScanForm onSubmit={handleSubmit} busy={submitting} demoTarget={config.demo_target} />
 
       {error ? (
         <p className="app__error" role="alert">
