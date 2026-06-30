@@ -16,13 +16,14 @@ output into a single finding schema, and turns the results into a clear report.
 ## Status
 
 This repository is built in small, demoable increments. The latest commit adds
-**scan submission with a consent gate and live progress**: a `POST /api/scans`
-that refuses to run without an explicit authorization acknowledgment, an async
-orchestrator stub that walks a scan through queued -> running -> done, live
-updates over WebSocket (with a polling fallback), and a frontend form that
-submits a target and shows progress in real time. Earlier increments delivered
-the unified data layer (SQLModel/SQLite models + normalized finding schema) and
-the project scaffold (FastAPI + React + Docker Compose).
+the **engine adapter framework and the first real engine, Nuclei**: a common
+adapter interface (`is_available` / `run` / `parse`), a real async orchestrator
+that selects available engines, runs them against the target, and persists their
+normalized findings, the Nuclei adapter (time-boxed subprocess, JSONL parsing,
+graceful when the binary is absent), nuclei baked into the backend image, and a
+frontend findings list for completed scans. Earlier increments delivered the
+consent gate + scan lifecycle + live progress, the unified data layer, and the
+project scaffold.
 
 ## Planned capabilities
 
@@ -56,9 +57,12 @@ the project scaffold (FastAPI + React + Docker Compose).
 │   │   ├── models.py        # Scan / Finding / Report tables + enums
 │   │   ├── schemas.py       # NormalizedFinding + API read/submit models
 │   │   ├── events.py        # in-memory progress pub/sub broker
-│   │   ├── orchestrator.py  # async job-runner stub (queued -> running -> done)
+│   │   ├── orchestrator.py  # async runner: select adapters, run, persist findings
+│   │   ├── adapters/
+│   │   │   ├── base.py      # EngineAdapter interface
+│   │   │   └── nuclei.py    # Nuclei adapter (run + parse + is_available)
 │   │   └── routers/
-│   │       ├── scans.py     # POST/GET /scans + WebSocket progress
+│   │       ├── scans.py     # POST/GET /scans, /scans/{id}/findings, WS progress
 │   │       └── dev.py       # temporary seed/fetch routes
 │   ├── tests/
 │   │   ├── test_health.py
@@ -66,19 +70,21 @@ the project scaffold (FastAPI + React + Docker Compose).
 │   │   ├── test_schemas.py
 │   │   ├── test_scans_api.py
 │   │   ├── test_orchestrator.py
+│   │   ├── test_nuclei_adapter.py
 │   │   ├── test_scan_ws.py
 │   │   └── test_dev_routes.py
-│   ├── Dockerfile
+│   ├── Dockerfile           # python + nuclei + templates
 │   ├── pyproject.toml
 │   ├── requirements.txt      # runtime deps
 │   └── requirements-dev.txt  # test deps
 ├── frontend/                React + Vite app
 │   ├── src/
-│   │   ├── api.js           # health, createScan, getScan, live subscribe
-│   │   ├── App.jsx          # submit form + live progress
+│   │   ├── api.js           # health, createScan, getScan, getFindings, live subscribe
+│   │   ├── App.jsx          # submit form + live progress + findings
 │   │   ├── components/
 │   │   │   ├── ScanForm.jsx       # target + consent gate
-│   │   │   └── ScanProgress.jsx   # live status + progress bar
+│   │   │   ├── ScanProgress.jsx   # live status + progress bar
+│   │   │   └── FindingsList.jsx   # normalized findings for a completed scan
 │   │   ├── index.css
 │   │   └── main.jsx
 │   ├── Dockerfile           # build -> nginx
@@ -98,8 +104,9 @@ docker compose up --build
 
 Then open <http://localhost:8080>. The page shows **"backend healthy"** once the
 API is up. Enter a target URL, confirm authorization, and start a scan to watch
-it move through **queued -> running -> done** live. The API itself is on
-<http://localhost:8000> (interactive docs at `/docs`).
+it move through **queued -> running -> done** live, then see the normalized
+findings Nuclei reports. The API itself is on <http://localhost:8000>
+(interactive docs at `/docs`).
 
 ### Try the data layer (temporary dev route)
 
@@ -163,7 +170,9 @@ npm test
 | --- | --- | --- | --- |
 | `ALLOWED_ORIGINS` | backend | `http://localhost:5173,http://localhost:8080` | Comma-separated CORS origins allowed to call the API directly. |
 | `DATABASE_URL` | backend | `sqlite:///./data/app.db` | SQLModel/SQLAlchemy database URL. Defaults to a SQLite file on the mounted data volume. |
-| `SCAN_STEP_DELAY` | backend | `0.6` | Seconds between simulated orchestrator progress steps (stub; lower it to speed up demos). |
+| `SCAN_STEP_DELAY` | backend | `0.6` | Seconds between orchestrator progress steps (lower it to speed up demos). |
+| `NUCLEI_TIMEOUT` | backend | `120` | Overall time-box (seconds) for a nuclei run (compose sets `90`). |
+| `NUCLEI_TAGS` | backend | _(empty)_ | Comma-separated nuclei template tags to focus the scan (compose sets a fast default set; clear for a full scan). |
 | `VITE_API_BASE_URL` | frontend | _(empty)_ | Override the backend origin. Empty means same-origin requests through the dev/nginx proxy. |
 
 ## Roadmap
@@ -171,7 +180,7 @@ npm test
 1. **Scaffold + health check + test harness** *(done)*
 2. **Unified finding schema + data layer** *(done)*
 3. **Consent gate + scan submission + live status** *(done)*
-4. Engine adapter framework + Nuclei
+4. **Engine adapter framework + Nuclei** *(done)*
 5. OWASP ZAP integration (XSS, SSRF, CSRF, headers)
 6. sqlmap integration (SQL injection)
 7. Nikto + custom authentication analysis
