@@ -34,6 +34,11 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove wget \
     && rm -rf /var/lib/apt/lists/*
 
+# --- Install Nikto web scanner ---
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nikto \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Python dependencies (separate layer to leverage Docker layer caching).
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

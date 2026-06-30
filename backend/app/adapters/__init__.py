@@ -1,11 +1,21 @@
 """Engine adapters and the registry the orchestrator runs."""
 
+from app.adapters.auth_checks import AuthChecksAdapter
 from app.adapters.base import EngineAdapter
+from app.adapters.nikto import NiktoAdapter
 from app.adapters.nuclei import NucleiAdapter
 from app.adapters.sqlmap import SqlmapAdapter
 from app.adapters.zap import ZapAdapter
 
-__all__ = ["EngineAdapter", "NucleiAdapter", "ZapAdapter", "SqlmapAdapter", "get_adapters"]
+__all__ = [
+    "EngineAdapter",
+    "NucleiAdapter",
+    "ZapAdapter",
+    "SqlmapAdapter",
+    "NiktoAdapter",
+    "AuthChecksAdapter",
+    "get_adapters",
+]
 
 
 def get_adapters() -> list[EngineAdapter]:
@@ -15,4 +25,10 @@ def get_adapters() -> list[EngineAdapter]:
     to list adapters whose engine may not be installed/reachable in a given
     environment.
     """
-    return [NucleiAdapter(), ZapAdapter(), SqlmapAdapter()]
+    return [
+        NucleiAdapter(),
+        ZapAdapter(),
+        SqlmapAdapter(),
+        NiktoAdapter(),
+        AuthChecksAdapter(),
+    ]
