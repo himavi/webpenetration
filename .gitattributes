@@ -1,0 +1,11 @@
+# Normalize line endings: store text files as LF in the repository so the
+# Linux-based Docker builds and the Windows dev environment stay consistent.
+* text=auto eol=lf
+
+# Treat common binary assets as binary (never normalize).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
