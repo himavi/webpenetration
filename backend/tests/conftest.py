@@ -55,6 +55,18 @@ def _offline_ai(monkeypatch):
     explainer.clear_cache()
 
 
+@pytest.fixture(autouse=True)
+def _no_auth(monkeypatch):
+    """Disable the auth gate by default so tests are hermetic.
+
+    Prevents an ``APP_PASSWORD`` that happens to be set in the environment from
+    gating the API during tests. Auth-specific tests set these explicitly.
+    """
+    monkeypatch.delenv("APP_PASSWORD", raising=False)
+    monkeypatch.delenv("APP_USERNAME", raising=False)
+    monkeypatch.delenv("APP_SECRET", raising=False)
+
+
 @pytest.fixture(name="session")
 def session_fixture():
     with Session(database.engine) as session:

@@ -4,6 +4,84 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
 const TERMINAL_STATUSES = new Set(['done', 'failed'])
+const TOKEN_KEY = 'aip_token'
+
+// --- Auth token storage ---------------------------------------------------
+
+export function getToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+export function setToken(token) {
+  try {
+    localStorage.setItem(TOKEN_KEY, token)
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearToken() {
+  try {
+    localStorage.removeItem(TOKEN_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+// Called whenever an authenticated request comes back 401 so the app can bounce
+// the user back to the login screen.
+let onUnauthorized = null
+export function setUnauthorizedHandler(fn) {
+  onUnauthorized = fn
+}
+
+function authHeaders(extra = {}) {
+  const token = getToken()
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra }
+}
+
+function handleUnauthorized() {
+  clearToken()
+  onUnauthorized?.()
+}
+
+// --- Auth endpoints (public) ----------------------------------------------
+
+export async function fetchAuthStatus() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/status`)
+    if (!response.ok) return { auth_required: false }
+    return response.json()
+  } catch {
+    return { auth_required: false }
+  }
+}
+
+export async function login(username, password) {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+  if (!response.ok) {
+    let data = null
+    try {
+      data = await response.json()
+    } catch {
+      /* ignore */
+    }
+    throw new Error(describeError(data, 'Invalid username or password'))
+  }
+  const data = await response.json()
+  setToken(data.token)
+  return data
+}
+
+// --- App API ---------------------------------------------------------------
 
 export async function fetchHealth() {
   const response = await fetch(`${API_BASE_URL}/health`)
@@ -14,7 +92,11 @@ export async function fetchHealth() {
 }
 
 export async function fetchConfig() {
-  const response = await fetch(`${API_BASE_URL}/api/config`)
+  const response = await fetch(`${API_BASE_URL}/api/config`, { headers: authHeaders() })
+  if (response.status === 401) {
+    handleUnauthorized()
+    throw new Error('Not authenticated')
+  }
   if (!response.ok) return { demo_mode: false, demo_target: null }
   return response.json()
 }
@@ -38,8 +120,13 @@ export async function createScan({ target, scanType = 'dast', authorized, file =
     formData.append('authorized', String(authorized))
     const response = await fetch(`${API_BASE_URL}/api/scans/upload`, {
       method: 'POST',
+      headers: authHeaders(),
       body: formData,
     })
+    if (response.status === 401) {
+      handleUnauthorized()
+      throw new Error('Not authenticated')
+    }
     if (!response.ok) {
       let data = null
       try { data = await response.json() } catch { /* ignore */ }
@@ -52,9 +139,13 @@ export async function createScan({ target, scanType = 'dast', authorized, file =
 
   const response = await fetch(`${API_BASE_URL}/api/scans`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ target, scan_type: scanType, authorized }),
   })
+  if (response.status === 401) {
+    handleUnauthorized()
+    throw new Error('Not authenticated')
+  }
   if (!response.ok) {
     let data = null
     try {
@@ -70,7 +161,11 @@ export async function createScan({ target, scanType = 'dast', authorized, file =
 }
 
 export async function getScan(scanId) {
-  const response = await fetch(`${API_BASE_URL}/api/scans/${scanId}`)
+  const response = await fetch(`${API_BASE_URL}/api/scans/${scanId}`, { headers: authHeaders() })
+  if (response.status === 401) {
+    handleUnauthorized()
+    throw new Error('Not authenticated')
+  }
   if (!response.ok) {
     throw new Error(`Failed to load scan ${scanId} (${response.status})`)
   }
@@ -78,16 +173,25 @@ export async function getScan(scanId) {
 }
 
 export async function getFindings(scanId) {
-  const response = await fetch(`${API_BASE_URL}/api/scans/${scanId}/findings`)
+  const response = await fetch(`${API_BASE_URL}/api/scans/${scanId}/findings`, {
+    headers: authHeaders(),
+  })
+  if (response.status === 401) {
+    handleUnauthorized()
+    throw new Error('Not authenticated')
+  }
   if (!response.ok) {
     throw new Error(`Failed to load findings for scan ${scanId} (${response.status})`)
   }
   return response.json()
 }
 
-// Direct download URL for a generated report (html | pdf | json).
+// Direct download URL for a generated report (html | pdf | json). The token is
+// passed as a query param since these are opened as plain links (no headers).
 export function reportUrl(scanId, format) {
-  return `${API_BASE_URL}/api/scans/${scanId}/report.${format}`
+  const token = getToken()
+  const query = token ? `?token=${encodeURIComponent(token)}` : ''
+  return `${API_BASE_URL}/api/scans/${scanId}/report.${format}${query}`
 }
 
 function webSocketUrl(path) {
@@ -95,6 +199,8 @@ function webSocketUrl(path) {
     API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
   const url = new URL(path, origin)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  const token = getToken()
+  if (token) url.searchParams.set('token', token)
   return url.toString()
 }
 

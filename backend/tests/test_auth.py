@@ -1,28 +1,77 @@
-"""Tests for the HTTP Basic auth credential check."""
+"""Tests for credential checks and signed bearer tokens."""
 
-import base64
+import time
 
-from app.auth import is_authorized
+import pytest
 
-
-def _header(user: str, pw: str) -> str:
-    token = base64.b64encode(f"{user}:{pw}".encode()).decode()
-    return f"Basic {token}"
+from app import auth
 
 
-def test_correct_credentials_authorized():
-    assert is_authorized(_header("recruiter", "s3cret"), "recruiter", "s3cret")
+@pytest.fixture
+def creds(monkeypatch):
+    monkeypatch.setenv("APP_USERNAME", "recruiter")
+    monkeypatch.setenv("APP_PASSWORD", "s3cret")
+    monkeypatch.delenv("APP_SECRET", raising=False)
 
 
-def test_wrong_password_rejected():
-    assert not is_authorized(_header("recruiter", "nope"), "recruiter", "s3cret")
+def test_auth_required_reflects_password(monkeypatch):
+    monkeypatch.delenv("APP_PASSWORD", raising=False)
+    assert auth.auth_required() is False
+    monkeypatch.setenv("APP_PASSWORD", "x")
+    assert auth.auth_required() is True
 
 
-def test_wrong_user_rejected():
-    assert not is_authorized(_header("intruder", "s3cret"), "recruiter", "s3cret")
+def test_check_credentials(creds):
+    assert auth.check_credentials("recruiter", "s3cret")
+    assert not auth.check_credentials("recruiter", "nope")
+    assert not auth.check_credentials("intruder", "s3cret")
 
 
-def test_missing_or_malformed_header_rejected():
-    assert not is_authorized("", "recruiter", "s3cret")
-    assert not is_authorized("Bearer abc", "recruiter", "s3cret")
-    assert not is_authorized("Basic not-base64!!", "recruiter", "s3cret")
+def test_token_roundtrip(creds):
+    token = auth.issue_token("recruiter")
+    assert auth.verify_token(token)
+
+
+def test_token_rejects_tampering(creds):
+    token = auth.issue_token("recruiter")
+    assert not auth.verify_token(token + "x")
+    assert not auth.verify_token("garbage")
+    assert not auth.verify_token("")
+
+
+def test_token_expiry(creds):
+    expired = auth.issue_token("recruiter", ttl=-1)
+    assert not auth.verify_token(expired)
+
+
+def test_token_invalid_after_secret_change(creds, monkeypatch):
+    token = auth.issue_token("recruiter")
+    monkeypatch.setenv("APP_PASSWORD", "rotated")
+    assert not auth.verify_token(token)
+
+
+def test_gating_rules():
+    assert auth._is_gated("/api/scans")
+    assert auth._is_gated("/api/config")
+    assert auth._is_gated("/docs")
+    assert not auth._is_gated("/health")
+    assert not auth._is_gated("/api/auth/login")
+    assert not auth._is_gated("/")
+    assert not auth._is_gated("/assets/index.js")
+
+
+def test_login_endpoint(client, monkeypatch):
+    monkeypatch.setenv("APP_USERNAME", "recruiter")
+    monkeypatch.setenv("APP_PASSWORD", "s3cret")
+    ok = client.post("/api/auth/login", json={"username": "recruiter", "password": "s3cret"})
+    assert ok.status_code == 200
+    assert auth.verify_token(ok.json()["token"])
+
+    bad = client.post("/api/auth/login", json={"username": "recruiter", "password": "wrong"})
+    assert bad.status_code == 401
+
+
+def test_status_endpoint(client):
+    resp = client.get("/api/auth/status")
+    assert resp.status_code == 200
+    assert "auth_required" in resp.json()

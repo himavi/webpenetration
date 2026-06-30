@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { createScan, fetchConfig, fetchHealth, getFindings, subscribeScan } from './api.js'
+import {
+  clearToken,
+  createScan,
+  fetchAuthStatus,
+  fetchConfig,
+  fetchHealth,
+  getFindings,
+  getToken,
+  setUnauthorizedHandler,
+  subscribeScan,
+} from './api.js'
+import Login from './components/Login.jsx'
 import ResultsDashboard from './components/ResultsDashboard.jsx'
 import ScanForm from './components/ScanForm.jsx'
 import ScanProgress from './components/ScanProgress.jsx'
@@ -17,7 +28,15 @@ const HEALTH_LABELS = {
   [Health.UNHEALTHY]: 'backend unavailable',
 }
 
+const Auth = {
+  LOADING: 'loading',
+  LOGIN: 'login',
+  READY: 'ready',
+}
+
 export default function App() {
+  const [auth, setAuth] = useState(Auth.LOADING)
+  const [authRequired, setAuthRequired] = useState(false)
   const [health, setHealth] = useState(Health.LOADING)
   const [config, setConfig] = useState({ demo_mode: false, demo_target: null })
   const [scan, setScan] = useState(null)
@@ -27,7 +46,29 @@ export default function App() {
   const [error, setError] = useState(null)
   const unsubscribeRef = useRef(null)
 
+  // Determine whether a login is needed, and bounce back to login on any 401.
   useEffect(() => {
+    let cancelled = false
+    setUnauthorizedHandler(() => setAuth(Auth.LOGIN))
+    fetchAuthStatus()
+      .then(({ auth_required }) => {
+        if (cancelled) return
+        setAuthRequired(Boolean(auth_required))
+        if (!auth_required || getToken()) setAuth(Auth.READY)
+        else setAuth(Auth.LOGIN)
+      })
+      .catch(() => {
+        if (!cancelled) setAuth(Auth.READY)
+      })
+    return () => {
+      cancelled = true
+      setUnauthorizedHandler(null)
+    }
+  }, [])
+
+  // Once authenticated, load health + config.
+  useEffect(() => {
+    if (auth !== Auth.READY) return
     let cancelled = false
     fetchHealth()
       .then((data) => {
@@ -37,15 +78,28 @@ export default function App() {
         if (!cancelled) setHealth(Health.UNHEALTHY)
       })
     fetchConfig()
-      .then((cfg) => { if (!cancelled) setConfig(cfg) })
+      .then((cfg) => {
+        if (!cancelled) setConfig(cfg)
+      })
       .catch(() => {})
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [auth])
 
   // Tear down any live subscription when the app unmounts.
   useEffect(() => () => unsubscribeRef.current?.(), [])
+
+  const handleSignOut = () => {
+    unsubscribeRef.current?.()
+    unsubscribeRef.current = null
+    clearToken()
+    setScan(null)
+    setFindings(null)
+    setError(null)
+    setHealth(Health.LOADING)
+    setAuth(Auth.LOGIN)
+  }
 
   const handleSubmit = async ({ target, scanType, authorized, file }) => {
     setError(null)
@@ -77,9 +131,26 @@ export default function App() {
     }
   }
 
+  if (auth === Auth.LOADING) {
+    return (
+      <main className="app">
+        <p className="app__tagline">Loading…</p>
+      </main>
+    )
+  }
+
+  if (auth === Auth.LOGIN) {
+    return <Login onSuccess={() => setAuth(Auth.READY)} />
+  }
+
   return (
     <main className="app">
       <header className="app__header">
+        {authRequired ? (
+          <button type="button" className="app__signout" onClick={handleSignOut}>
+            Sign out
+          </button>
+        ) : null}
         <h1>AI Penetration Tester</h1>
         <p className="app__tagline">
           Coordinated open-source security scanning with plain-language AI explanations.

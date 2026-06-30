@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from app import __version__ as APP_VERSION
 from app.database import init_db
-from app.routers import dev, reports, scans, upload
+from app.routers import auth, dev, reports, scans, upload
 
 SERVICE_NAME = "ai-pentester-backend"
 
@@ -68,15 +68,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Optional shared-credential gate (active only when APP_PASSWORD is set).
+# Optional token-based auth gate (active only when APP_PASSWORD is set).
 # Added after CORS so it runs first and rejects unauthorized requests early.
-from app.auth import BasicAuthMiddleware  # noqa: E402
+from app.auth import AuthMiddleware  # noqa: E402
 
-app.add_middleware(BasicAuthMiddleware)
+app.add_middleware(AuthMiddleware)
 
 app.include_router(scans.router)
 app.include_router(upload.router)
 app.include_router(reports.router)
+app.include_router(auth.router)
 app.include_router(dev.router)
 
 

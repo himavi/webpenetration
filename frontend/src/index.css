@@ -408,3 +408,53 @@ body {
   text-transform: none;
   letter-spacing: normal;
 }
+
+/* --- Auth: login screen + sign-out --- */
+.app--login {
+  width: min(420px, 92vw);
+}
+
+.login__lock {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.scan-form input[type='text'],
+.scan-form input[type='password'] {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0f1626;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.scan-form input[type='text']:focus,
+.scan-form input[type='password']:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.25);
+}
+
+.app__header {
+  position: relative;
+}
+
+.app__signout {
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.app__signout:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.25);
+}

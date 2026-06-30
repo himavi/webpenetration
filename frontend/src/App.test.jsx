@@ -3,9 +3,27 @@ import { render, screen } from '@testing-library/react'
 
 import App from './App.jsx'
 
+// Fake fetch keyed by URL so the auth-status check, health, and config calls
+// each resolve correctly. `healthOk` controls the /health response.
+function fakeFetch({ healthOk = true } = {}) {
+  return vi.fn(async (url) => {
+    if (typeof url === 'string' && url.endsWith('/api/auth/status')) {
+      return { ok: true, json: async () => ({ auth_required: false }) }
+    }
+    if (typeof url === 'string' && url.endsWith('/health')) {
+      if (!healthOk) throw new Error('network down')
+      return { ok: true, json: async () => ({ status: 'ok', service: 'x', version: '0.1.0' }) }
+    }
+    if (typeof url === 'string' && url.endsWith('/api/config')) {
+      return { ok: true, json: async () => ({ demo_mode: false, demo_target: null }) }
+    }
+    return { ok: false, status: 404, json: async () => ({}) }
+  })
+}
+
 describe('App status page', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn())
+    localStorage.clear()
   })
 
   afterEach(() => {
@@ -14,24 +32,15 @@ describe('App status page', () => {
   })
 
   it('shows "backend healthy" when the health endpoint reports ok', async () => {
-    fetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        status: 'ok',
-        service: 'ai-pentester-backend',
-        version: '0.1.0',
-      }),
-    })
+    vi.stubGlobal('fetch', fakeFetch({ healthOk: true }))
 
     render(<App />)
 
-    expect(screen.getByText(/checking backend/i)).toBeInTheDocument()
     expect(await screen.findByText('backend healthy')).toBeInTheDocument()
-    expect(fetch).toHaveBeenCalledWith('/health')
   })
 
   it('shows "backend unavailable" when the request fails', async () => {
-    fetch.mockRejectedValueOnce(new Error('network down'))
+    vi.stubGlobal('fetch', fakeFetch({ healthOk: false }))
 
     render(<App />)
 
