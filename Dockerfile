@@ -1,24 +1,38 @@
-# Single-container image for Hugging Face Spaces (Docker SDK).
-# Builds the full backend with all engines, serves on port 7860 (HF default),
-# and runs in demo mode with sample reports pre-seeded.
+# All-in-one image for Hugging Face Spaces (Docker SDK) and any single-container
+# host. Builds the React frontend, then serves it from the FastAPI backend on
+# port 7860 alongside the API, with every scanning engine installed, in demo
+# mode (scope-restricted + sample report seeded on first boot).
 #
-# Deploy to HF Spaces:
-#   1. Create a new Space with Docker SDK
-#   2. Push this repo (or just this file + backend/) to the Space
-#   3. Set secrets: DEMO_MODE=1 (optional: GROQ_API_KEY for AI explanations)
+# HF Spaces uses this Dockerfile automatically (root + named "Dockerfile") and
+# the app_port: 7860 declared in README.md frontmatter.
 #
-# The frontend can be deployed separately on Vercel/Netlify pointing
-# VITE_API_BASE_URL at the Space's URL, or served as static files.
+# Local build/run:
+#   docker build -t ai-pentester .
+#   docker run -p 7860:7860 ai-pentester   ->  open http://localhost:7860
 
+# --- Stage 1: build the React frontend (same-origin API, so no base URL) ---
+FROM node:24-alpine AS frontend
+WORKDIR /web
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# --- Stage 2: backend + engines + bundled static frontend ---
 FROM python:3.13-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    DEMO_MODE=1
+    DEMO_MODE=1 \
+    DEMO_TARGET=http://localhost:7860 \
+    STATIC_DIR=/app/static \
+    NUCLEI_TIMEOUT=60 \
+    NUCLEI_TAGS=misconfig,misconfiguration,exposure,exposures,tech,ssl \
+    SQLMAP_TIMEOUT=60
 
 WORKDIR /app
 
-# --- Nuclei ---
+# --- Nuclei scanner (pinned) + templates ---
 ARG NUCLEI_VERSION=3.9.0
 RUN apt-get update \
     && apt-get install -y --no-install-recommends wget unzip ca-certificates \
@@ -30,7 +44,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 RUN nuclei -update-templates
 
-# --- sqlmap ---
+# --- sqlmap (pinned) ---
 ARG SQLMAP_VERSION=1.10.6
 RUN apt-get update \
     && apt-get install -y --no-install-recommends wget ca-certificates \
@@ -43,13 +57,13 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove wget \
     && rm -rf /var/lib/apt/lists/*
 
-# --- WeasyPrint native libs ---
+# --- WeasyPrint native libraries (PDF reports) ---
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libpango-1.0-0 libpangoft2-1.0-0 fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Nikto from source ---
+# --- Nikto from source (Debian trixie dropped the package) ---
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         git perl libnet-ssleay-perl libjson-perl libxml-writer-perl \
@@ -60,15 +74,16 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove git \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Semgrep ---
+# --- Semgrep (SAST) ---
 RUN pip install --no-cache-dir semgrep
 
 # --- Python deps ---
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- App code ---
+# --- App code + built frontend ---
 COPY backend/app ./app
+COPY --from=frontend /web/dist ./static
 RUN mkdir -p /app/data
 
 EXPOSE 7860

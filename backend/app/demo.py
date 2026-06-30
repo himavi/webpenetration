@@ -9,6 +9,11 @@ import os
 
 DEMO_MODE = os.getenv("DEMO_MODE", "").strip() in ("1", "true", "yes")
 
+# The single target permitted in demo mode. Defaults to the bundled Juice Shop
+# (docker-compose); the all-in-one Spaces image sets this to the app's own URL
+# so a recruiter can run a real (self) scan in a single free container.
+DEMO_TARGET = os.getenv("DEMO_TARGET", "http://juiceshop:3000")
+
 # Targets allowed in demo mode. Only the bundled Juice Shop (by compose service
 # name and common aliases) and localhost are permitted.
 DEMO_ALLOWLIST = [
@@ -25,7 +30,8 @@ def is_target_allowed(target: str) -> bool:
     if not DEMO_MODE:
         return True
     low = target.lower().strip()
-    return any(low.startswith(prefix) for prefix in DEMO_ALLOWLIST)
+    prefixes = DEMO_ALLOWLIST + [DEMO_TARGET.lower().strip()]
+    return any(low.startswith(prefix) for prefix in prefixes)
 
 
 def seed_sample_data():

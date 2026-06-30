@@ -83,19 +83,30 @@ def health() -> HealthResponse:
 @app.get("/api/config", tags=["system"])
 def config() -> dict:
     """Return public configuration for the frontend (demo mode, allowed target)."""
-    from app.demo import DEMO_MODE
+    from app.demo import DEMO_MODE, DEMO_TARGET
     return {
         "demo_mode": DEMO_MODE,
-        "demo_target": "http://juiceshop:3000" if DEMO_MODE else None,
+        "demo_target": DEMO_TARGET if DEMO_MODE else None,
     }
 
 
-@app.get("/", tags=["system"])
-def root() -> dict[str, str]:
-    """Friendly root pointing at the docs and health endpoints."""
-    return {
-        "service": SERVICE_NAME,
-        "version": APP_VERSION,
-        "health": "/health",
-        "docs": "/docs",
-    }
+# Serve the built React frontend from the same container when present (the
+# all-in-one Spaces image copies it to /app/static). Mounted last so it never
+# shadows the API, health, config, or docs routes registered above. When no
+# build is present (plain local backend), fall back to a JSON root.
+_STATIC_DIR = os.getenv("STATIC_DIR", "")
+if _STATIC_DIR and os.path.isdir(_STATIC_DIR):
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=_STATIC_DIR, html=True), name="static")
+else:
+
+    @app.get("/", tags=["system"])
+    def root() -> dict[str, str]:
+        """Friendly root pointing at the docs and health endpoints."""
+        return {
+            "service": SERVICE_NAME,
+            "version": APP_VERSION,
+            "health": "/health",
+            "docs": "/docs",
+        }

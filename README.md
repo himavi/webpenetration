@@ -1,3 +1,13 @@
+---
+title: AI Penetration Tester
+emoji: 🛡️
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # AI Penetration Tester
 
 A web app that runs a coordinated suite of free, open-source security scanners
@@ -242,35 +252,42 @@ All engines run with no restrictions. Add `GROQ_API_KEY` or `GEMINI_API_KEY` to
 `docker-compose.yml` (or a `.env` file) for AI-powered explanations; without
 them the built-in templates still produce clear findings.
 
-### Free hosted demo (Hugging Face Spaces / Railway / Render)
+### Free hosted demo (Hugging Face Spaces) — one container, one link
 
-The app is designed to run in a single container for free-tier platforms:
+The root `Dockerfile` is an all-in-one image: it builds the React frontend and
+serves it from the FastAPI backend (port 7860) with every engine installed, in
+demo mode. A recruiter opens a single URL, views a pre-seeded sample report
+instantly, and can run a real self-scan against the app — no external traffic,
+no second service, fully free.
 
-1. **Build the backend image** — it includes all engines (nuclei, sqlmap, nikto,
-   semgrep) and serves the API.
-2. **Set `DEMO_MODE=1`** as an environment variable (secrets panel on HF Spaces
-   or Railway).
-3. **Frontend** — either serve from the same container by adding a static file
-   mount, or deploy to Vercel/Netlify for free (set `VITE_API_BASE_URL` to the
-   backend URL).
-4. The Juice Shop target won't be available on most free tiers (it needs its own
-   container), so the seeded sample reports provide the instant demo experience.
+1. On <https://huggingface.co/new-space>, create a Space → **SDK: Docker** →
+   template **Blank** → hardware **CPU basic (free)**.
+2. Push this repository to the Space's git remote:
 
-**Hugging Face Spaces (Docker):**
+   ```bash
+   git remote add space https://huggingface.co/spaces/<your-username>/<space-name>
+   git push space main
+   ```
 
-```dockerfile
-# Use the existing backend Dockerfile; HF Spaces exposes port 7860 by default.
-# Add to the CMD: --port 7860
-# Set secrets: DEMO_MODE=1
+   (Authenticate with your Hugging Face username and an access token from
+   <https://huggingface.co/settings/tokens> as the password.)
+3. The Space reads the `README.md` frontmatter (`sdk: docker`, `app_port: 7860`)
+   and builds the root `Dockerfile`. First build takes ~10-20 min (it downloads
+   the engines + nuclei templates).
+4. Optional: add `GROQ_API_KEY` in the Space's **Settings → Secrets** for live
+   AI explanations (the template fallback works without it).
+
+The image ships with `DEMO_MODE=1` and `DEMO_TARGET=http://localhost:7860`, so
+scanning is restricted to the app itself and a sample report is seeded on first
+boot.
+
+### Local single-container (mirrors the hosted demo)
+
+```bash
+docker build -t ai-pentester .
+docker run -p 7860:7860 ai-pentester
+# open http://localhost:7860
 ```
-
-**Environment variables for hosted deploy:**
-
-| Variable | Value | Purpose |
-| --- | --- | --- |
-| `DEMO_MODE` | `1` | Enables safe restrictions |
-| `GROQ_API_KEY` | _(optional)_ | AI explanations (set in secrets) |
-| `ALLOWED_ORIGINS` | your frontend URL | CORS |
 
 ### Security notes for deployment
 
