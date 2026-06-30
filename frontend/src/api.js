@@ -79,6 +79,11 @@ export async function getFindings(scanId) {
   return response.json()
 }
 
+// Direct download URL for a generated report (html | pdf | json).
+export function reportUrl(scanId, format) {
+  return `${API_BASE_URL}/api/scans/${scanId}/report.${format}`
+}
+
 function webSocketUrl(path) {
   const origin =
     API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost')

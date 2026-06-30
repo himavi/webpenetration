@@ -3,47 +3,48 @@ import { render, screen } from '@testing-library/react'
 
 import FindingsList from './FindingsList.jsx'
 
-const sampleFindings = [
-  {
-    id: 1,
-    scan_id: 1,
-    engine: 'nuclei',
-    vuln_type: 'tech-detect',
-    severity: 'info',
-    title: 'Technology detected',
-    location: 'https://example.com',
-  },
+const findings = [
+  { id: 1, engine: 'nuclei', vuln_type: 'tech', severity: 'info', title: 'Tech detected' },
   {
     id: 2,
-    scan_id: 1,
-    engine: 'nuclei',
-    vuln_type: 'CVE-2021-99999',
-    severity: 'critical',
-    title: 'Remote code execution',
-    location: 'https://example.com/api',
-    cwe_id: 'CWE-77',
+    engine: 'zap',
+    vuln_type: 'xss',
+    severity: 'high',
+    title: 'Reflected XSS',
+    cwe_id: 'CWE-79',
+    explanation: 'XSS lets an attacker run scripts in the victim browser.',
+    impact: 'Session theft and account takeover.',
+    ai_remediation: 'Encode output and apply a CSP.',
   },
 ]
 
 describe('FindingsList', () => {
-  it('renders findings with most severe first', () => {
-    render(<FindingsList findings={sampleFindings} />)
+  it('renders findings with a heading count', () => {
+    render(<FindingsList findings={findings} />)
     expect(screen.getByText('Findings (2)')).toBeInTheDocument()
-
-    const titles = screen.getAllByText(/Technology detected|Remote code execution/)
-    expect(titles[0]).toHaveTextContent('Remote code execution') // critical sorted above info
+    expect(screen.getByText('Reflected XSS')).toBeInTheDocument()
+    expect(screen.getByText('Tech detected')).toBeInTheDocument()
   })
 
-  it('shows an empty message when there are no findings', () => {
+  it('shows the AI explanation, impact and fix when present', () => {
+    render(<FindingsList findings={findings} />)
+    expect(screen.getByText(/lets an attacker run scripts/i)).toBeInTheDocument()
+    expect(screen.getByText(/session theft/i)).toBeInTheDocument()
+    expect(screen.getByText(/apply a csp/i)).toBeInTheDocument()
+  })
+
+  it('shows "of total" when a filtered subset is passed', () => {
+    render(<FindingsList findings={[findings[1]]} total={2} />)
+    expect(screen.getByText('Findings (1 of 2)')).toBeInTheDocument()
+  })
+
+  it('shows an empty message when no findings match', () => {
     render(<FindingsList findings={[]} />)
-    expect(screen.getByText(/no findings reported/i)).toBeInTheDocument()
+    expect(screen.getByText(/no findings match/i)).toBeInTheDocument()
   })
 
-  it('shows a loading message and renders nothing before a scan', () => {
-    const { rerender, container } = render(<FindingsList findings={null} loading />)
-    expect(screen.getByText(/loading findings/i)).toBeInTheDocument()
-
-    rerender(<FindingsList findings={null} loading={false} />)
+  it('renders nothing before findings are loaded', () => {
+    const { container } = render(<FindingsList findings={null} />)
     expect(container).toBeEmptyDOMElement()
   })
 })

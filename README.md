@@ -15,14 +15,15 @@ output into a single finding schema, and turns the results into a clear report.
 
 ## Status
 
-This repository is built in small, demoable increments. The latest commit adds
-the **sqlmap engine** for SQL-injection testing: a controlled, time-boxed
-subprocess whose confirmed injections (affected parameter, technique, payload,
-back-end DBMS) are parsed into the unified finding shape. With Nuclei and OWASP
-ZAP already wired in, a single scan now runs all three engines and merges every
-result into the same findings list. Earlier increments delivered the ZAP engine,
-the engine adapter framework + Nuclei, the consent gate + scan lifecycle + live
-progress, the unified data layer, and the project scaffold.
+This repository is built in small, demoable increments. The app now runs the
+full flow end-to-end: submit a URL and/or upload a source zip, watch live
+progress as seven engines (Nuclei, OWASP ZAP, sqlmap, Nikto, custom auth/header
+checks, schemathesis API fuzzing, Semgrep SAST) run and merge into one findings
+set, read **AI-generated explanations, impact, and remediation** for each finding
+(Groq/Gemini when a key is set, built-in templates offline), explore a
+**results dashboard** with severity summary and filtering, and download a
+complete **HTML / PDF / JSON report**. Earlier increments delivered the engines,
+the consent gate + live progress, the unified data layer, and the scaffold.
 
 ## Planned capabilities
 
@@ -180,7 +181,14 @@ npm test
 | `ZAP_API_URL` | backend | `http://zap:8090` | Base URL of the OWASP ZAP daemon's REST API. |
 | `ZAP_TIMEOUT` | backend | `180` | Overall time-box (seconds) for a ZAP spider + active scan. |
 | `SQLMAP_TIMEOUT` | backend | `180` | Overall time-box (seconds) for the sqlmap SQL-injection probe. |
+| `GROQ_API_KEY` | backend | _(unset)_ | Optional. Enables AI explanations via Groq (primary). Read from env only. |
+| `GEMINI_API_KEY` | backend | _(unset)_ | Optional. Enables AI explanations via Gemini (alternative). Used if no Groq key. |
+| `MAX_UPLOAD_SIZE` | backend | `52428800` | Max source-zip upload size in bytes (50 MB). |
 | `VITE_API_BASE_URL` | frontend | _(empty)_ | Override the backend origin. Empty means same-origin requests through the dev/nginx proxy. |
+
+> **AI explanations are optional.** With no `GROQ_API_KEY` or `GEMINI_API_KEY`
+> set, every finding still gets a clear explanation, impact, and remediation from
+> built-in per-vulnerability templates, so the app is fully demoable offline.
 
 ## Roadmap
 
@@ -190,11 +198,11 @@ npm test
 4. **Engine adapter framework + Nuclei** *(done)*
 5. **OWASP ZAP integration (XSS, SSRF, CSRF, headers)** *(done)*
 6. **sqlmap integration (SQL injection)** *(done)*
-7. Nikto + custom authentication analysis
-8. API fuzzing (schemathesis + ZAP API scan)
-9. Source-code upload + Semgrep SAST
-10. AI explanation service (Groq/Gemini + fallback)
-11. Report generation (HTML / PDF / JSON)
-12. Full frontend integration
+7. **Nikto + custom authentication analysis** *(done)*
+8. **API fuzzing (schemathesis + ZAP API scan)** *(done)*
+9. **Source-code upload + Semgrep SAST** *(done)*
+10. **AI explanation service (Groq/Gemini + fallback)** *(done)*
+11. **Report generation (HTML / PDF / JSON)** *(done)*
+12. **Full frontend integration** *(done)*
 13. Safe demo mode + bundled vulnerable target + scope allowlist
 14. Free deployment + docs

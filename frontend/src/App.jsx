@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { createScan, fetchHealth, getFindings, subscribeScan } from './api.js'
-import FindingsList from './components/FindingsList.jsx'
+import ResultsDashboard from './components/ResultsDashboard.jsx'
 import ScanForm from './components/ScanForm.jsx'
 import ScanProgress from './components/ScanProgress.jsx'
 
@@ -43,7 +43,7 @@ export default function App() {
   // Tear down any live subscription when the app unmounts.
   useEffect(() => () => unsubscribeRef.current?.(), [])
 
-  const handleSubmit = async ({ target, scanType, authorized }) => {
+  const handleSubmit = async ({ target, scanType, authorized, file }) => {
     setError(null)
     setSubmitting(true)
     setFindings(null)
@@ -51,7 +51,7 @@ export default function App() {
     unsubscribeRef.current = null
 
     try {
-      const created = await createScan({ target, scanType, authorized })
+      const created = await createScan({ target, scanType, authorized, file })
       setScan(created)
       unsubscribeRef.current = subscribeScan(created.id, {
         onUpdate: (data) => {
@@ -100,7 +100,7 @@ export default function App() {
 
       <ScanProgress scan={scan} />
 
-      <FindingsList findings={findings} loading={findingsLoading} />
+      <ResultsDashboard scan={scan} findings={findings} loading={findingsLoading} />
     </main>
   )
 }

@@ -330,3 +330,81 @@ body {
   margin: 0;
   word-break: break-word;
 }
+
+.dashboard {
+  margin-top: 1.75rem;
+  text-align: left;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.summary__pill {
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.downloads {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.downloads__label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.button--ghost {
+  background: transparent;
+  border: 1px solid rgba(91, 140, 255, 0.5);
+  color: var(--accent);
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.button--ghost:hover {
+  background: rgba(91, 140, 255, 0.12);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem;
+  background: #0f1626;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.filters label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.filters select,
+.filters input {
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #141b2e;
+  color: var(--text);
+  font-size: 0.9rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
