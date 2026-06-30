@@ -68,6 +68,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Optional shared-credential gate (active only when APP_PASSWORD is set).
+# Added after CORS so it runs first and rejects unauthorized requests early.
+from app.auth import BasicAuthMiddleware  # noqa: E402
+
+app.add_middleware(BasicAuthMiddleware)
+
 app.include_router(scans.router)
 app.include_router(upload.router)
 app.include_router(reports.router)
