@@ -21,6 +21,19 @@ RUN apt-get update \
 # (Note: -disable-update-check must NOT be combined here or the update is skipped.)
 RUN nuclei -update-templates
 
+# --- Install sqlmap (pinned) for SQL-injection testing ---
+ARG SQLMAP_VERSION=1.10.6
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget ca-certificates \
+    && wget -q "https://github.com/sqlmapproject/sqlmap/archive/refs/tags/${SQLMAP_VERSION}.tar.gz" -O /tmp/sqlmap.tgz \
+    && mkdir -p /opt/sqlmap \
+    && tar -xzf /tmp/sqlmap.tgz -C /opt/sqlmap --strip-components=1 \
+    && chmod +x /opt/sqlmap/sqlmap.py \
+    && ln -s /opt/sqlmap/sqlmap.py /usr/local/bin/sqlmap \
+    && rm -f /tmp/sqlmap.tgz \
+    && apt-get purge -y --auto-remove wget \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Python dependencies (separate layer to leverage Docker layer caching).
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

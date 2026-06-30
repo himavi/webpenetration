@@ -14,6 +14,8 @@ services:
       # OWASP ZAP daemon (internal-only service below) for active scanning.
       - ZAP_API_URL=http://zap:8090
       - ZAP_TIMEOUT=180
+      # sqlmap: time-box the SQL-injection probe so the demo stays bounded.
+      - SQLMAP_TIMEOUT=180
     volumes:
       # Persists the SQLite database that arrives in the next task.
       - backend-data:/app/data
