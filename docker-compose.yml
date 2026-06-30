@@ -1,0 +1,33 @@
+# Runs the full AI Penetration Tester stack: FastAPI backend + React frontend.
+# Usage: docker compose up --build  ->  open http://localhost:8080
+services:
+  backend:
+    build: ./backend
+    image: ai-pentester-backend
+    environment:
+      # Origins allowed to call the API directly (the nginx proxy is same-origin).
+      - ALLOWED_ORIGINS=http://localhost:8080,http://localhost:5173
+    volumes:
+      # Persists the SQLite database that arrives in the next task.
+      - backend-data:/app/data
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build: ./frontend
+    image: ai-pentester-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend-data:
