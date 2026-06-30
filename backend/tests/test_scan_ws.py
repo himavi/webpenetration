@@ -2,8 +2,9 @@
 
 
 def test_ws_streams_progress_until_done(client, monkeypatch):
-    # A small per-step delay so the socket can observe in-progress updates.
-    monkeypatch.setenv("SCAN_STEP_DELAY", "0.05")
+    # A delay so the socket can observe the running state before completion
+    # (with no engines installed in tests, the scan otherwise finishes at once).
+    monkeypatch.setenv("SCAN_STEP_DELAY", "0.2")
 
     created = client.post(
         "/api/scans",

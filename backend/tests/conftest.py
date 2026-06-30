@@ -32,6 +32,15 @@ def _fresh_db():
     yield
 
 
+@pytest.fixture(autouse=True)
+def _no_real_engines(monkeypatch):
+    """Safety net: route-driven scans must never launch real external engines.
+
+    Tests that exercise the orchestrator pass adapters explicitly to run_scan.
+    """
+    monkeypatch.setattr("app.orchestrator.get_adapters", lambda: [])
+
+
 @pytest.fixture(name="session")
 def session_fixture():
     with Session(database.engine) as session:
