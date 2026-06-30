@@ -11,8 +11,8 @@ pinned: false
 # AI Penetration Tester
 
 **▶ Live demo: https://hkfdihjebfvhdfbvgre-ai-pentester.hf.space**
-(no signup needed — view a sample security report instantly, or run a safe scan
-against the bundled demo target)
+(access-controlled — credentials provided on request; authorized users can run
+live scans and download HTML / PDF / JSON reports)
 
 A web app that runs a coordinated suite of free, open-source security scanners
 against a target, explains every finding in plain language with a free LLM, and
