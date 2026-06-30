@@ -1,18 +1,21 @@
 """FastAPI application entrypoint for the AI Penetration Tester backend.
 
-Task 1 scope: expose a health check the frontend can poll. The richer data
-layer, scan orchestration, and engine adapters arrive in later tasks.
+Exposes a health check, creates the database schema on startup, and (for now)
+mounts a temporary developer router so the data layer is demoable.
 """
 
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app import __version__ as APP_VERSION
+from app.database import init_db
+from app.routers import dev
 
 SERVICE_NAME = "ai-pentester-backend"
 
@@ -38,6 +41,13 @@ class HealthResponse(BaseModel):
     version: str
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Create database tables on startup (idempotent)."""
+    init_db()
+    yield
+
+
 app = FastAPI(
     title="AI Penetration Tester API",
     version=APP_VERSION,
@@ -45,6 +55,7 @@ app = FastAPI(
         "Backend for the AI Penetration Tester: orchestrates open-source "
         "security scanners and explains findings in plain language."
     ),
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -54,6 +65,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(dev.router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["system"])
