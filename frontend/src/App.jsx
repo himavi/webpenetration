@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { createScan, fetchHealth, subscribeScan } from './api.js'
+import { createScan, fetchHealth, getFindings, subscribeScan } from './api.js'
+import FindingsList from './components/FindingsList.jsx'
 import ScanForm from './components/ScanForm.jsx'
 import ScanProgress from './components/ScanProgress.jsx'
 
@@ -19,6 +20,8 @@ const HEALTH_LABELS = {
 export default function App() {
   const [health, setHealth] = useState(Health.LOADING)
   const [scan, setScan] = useState(null)
+  const [findings, setFindings] = useState(null)
+  const [findingsLoading, setFindingsLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const unsubscribeRef = useRef(null)
@@ -43,6 +46,7 @@ export default function App() {
   const handleSubmit = async ({ target, scanType, authorized }) => {
     setError(null)
     setSubmitting(true)
+    setFindings(null)
     unsubscribeRef.current?.()
     unsubscribeRef.current = null
 
@@ -50,7 +54,16 @@ export default function App() {
       const created = await createScan({ target, scanType, authorized })
       setScan(created)
       unsubscribeRef.current = subscribeScan(created.id, {
-        onUpdate: (data) => setScan((prev) => ({ ...prev, ...data })),
+        onUpdate: (data) => {
+          setScan((prev) => ({ ...prev, ...data }))
+          if (data.status === 'done' || data.status === 'failed') {
+            setFindingsLoading(true)
+            getFindings(created.id)
+              .then((items) => setFindings(items))
+              .catch(() => setFindings([]))
+              .finally(() => setFindingsLoading(false))
+          }
+        },
       })
     } catch (err) {
       setScan(null)
@@ -86,6 +99,8 @@ export default function App() {
       ) : null}
 
       <ScanProgress scan={scan} />
+
+      <FindingsList findings={findings} loading={findingsLoading} />
     </main>
   )
 }

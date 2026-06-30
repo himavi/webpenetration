@@ -50,6 +50,14 @@ export async function getScan(scanId) {
   return response.json()
 }
 
+export async function getFindings(scanId) {
+  const response = await fetch(`${API_BASE_URL}/api/scans/${scanId}/findings`)
+  if (!response.ok) {
+    throw new Error(`Failed to load findings for scan ${scanId} (${response.status})`)
+  }
+  return response.json()
+}
+
 function webSocketUrl(path) {
   const origin =
     API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
