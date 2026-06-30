@@ -87,7 +87,7 @@ class NucleiAdapter(EngineAdapter):
             cmd += self.extra_args.split()
         return cmd
 
-    async def run(self, target: str) -> str:
+    async def run(self, target: str, on_progress=None) -> str:
         """Run nuclei (target via stdin), returning JSONL stdout (partial on timeout)."""
         cmd = self._build_command()
         try:

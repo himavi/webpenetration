@@ -16,12 +16,12 @@ output into a single finding schema, and turns the results into a clear report.
 ## Status
 
 This repository is built in small, demoable increments. The latest commit adds
-the **engine adapter framework and the first real engine, Nuclei**: a common
-adapter interface (`is_available` / `run` / `parse`), a real async orchestrator
-that selects available engines, runs them against the target, and persists their
-normalized findings, the Nuclei adapter (time-boxed subprocess, JSONL parsing,
-graceful when the binary is absent), nuclei baked into the backend image, and a
-frontend findings list for completed scans. Earlier increments delivered the
+the **OWASP ZAP engine** for active DAST: a headless ZAP daemon (compose
+service) driven over its REST API to spider, passively scan, then actively scan
+the target, with live sub-progress fed into the scan bar and alerts (XSS, SSRF,
+CSRF, missing security headers, ...) mapped into the unified finding shape. It
+runs alongside Nuclei, so a single scan merges results from every available
+engine. Earlier increments delivered the engine adapter framework + Nuclei, the
 consent gate + scan lifecycle + live progress, the unified data layer, and the
 project scaffold.
 
@@ -59,8 +59,10 @@ project scaffold.
 │   │   ├── events.py        # in-memory progress pub/sub broker
 │   │   ├── orchestrator.py  # async runner: select adapters, run, persist findings
 │   │   ├── adapters/
-│   │   │   ├── base.py      # EngineAdapter interface
-│   │   │   └── nuclei.py    # Nuclei adapter (run + parse + is_available)
+│   │   │   ├── base.py      # EngineAdapter interface (+ progress callback)
+│   │   │   ├── owasp.py     # CWE -> OWASP Top 10 mapping
+│   │   │   ├── nuclei.py    # Nuclei adapter (run + parse + is_available)
+│   │   │   └── zap.py       # OWASP ZAP adapter (spider/passive/active)
 │   │   └── routers/
 │   │       ├── scans.py     # POST/GET /scans, /scans/{id}/findings, WS progress
 │   │       └── dev.py       # temporary seed/fetch routes
@@ -71,6 +73,7 @@ project scaffold.
 │   │   ├── test_scans_api.py
 │   │   ├── test_orchestrator.py
 │   │   ├── test_nuclei_adapter.py
+│   │   ├── test_zap_adapter.py
 │   │   ├── test_scan_ws.py
 │   │   └── test_dev_routes.py
 │   ├── Dockerfile           # python + nuclei + templates
@@ -173,6 +176,8 @@ npm test
 | `SCAN_STEP_DELAY` | backend | `0.6` | Seconds between orchestrator progress steps (lower it to speed up demos). |
 | `NUCLEI_TIMEOUT` | backend | `120` | Overall time-box (seconds) for a nuclei run (compose sets `90`). |
 | `NUCLEI_TAGS` | backend | _(empty)_ | Comma-separated nuclei template tags to focus the scan (compose sets a fast default set; clear for a full scan). |
+| `ZAP_API_URL` | backend | `http://zap:8090` | Base URL of the OWASP ZAP daemon's REST API. |
+| `ZAP_TIMEOUT` | backend | `180` | Overall time-box (seconds) for a ZAP spider + active scan. |
 | `VITE_API_BASE_URL` | frontend | _(empty)_ | Override the backend origin. Empty means same-origin requests through the dev/nginx proxy. |
 
 ## Roadmap
@@ -181,7 +186,7 @@ npm test
 2. **Unified finding schema + data layer** *(done)*
 3. **Consent gate + scan submission + live status** *(done)*
 4. **Engine adapter framework + Nuclei** *(done)*
-5. OWASP ZAP integration (XSS, SSRF, CSRF, headers)
+5. **OWASP ZAP integration (XSS, SSRF, CSRF, headers)** *(done)*
 6. sqlmap integration (SQL injection)
 7. Nikto + custom authentication analysis
 8. API fuzzing (schemathesis + ZAP API scan)

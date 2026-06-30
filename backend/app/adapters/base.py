@@ -6,9 +6,15 @@ their output as the unified ``NormalizedFinding`` shape from the data layer.
 """
 
 from abc import ABC, abstractmethod
+from typing import Awaitable, Callable, Optional
 
 from app.models import ScanType
 from app.schemas import NormalizedFinding
+
+#: Async callback an adapter may await to report fine-grained progress. It
+#: receives a percent (0-100, relative to the adapter's own work) and a short
+#: human-readable message. The orchestrator maps it into the overall scan bar.
+ProgressCallback = Callable[[int, str], Awaitable[None]]
 
 
 class EngineAdapter(ABC):
@@ -22,11 +28,14 @@ class EngineAdapter(ABC):
 
     @abstractmethod
     def is_available(self) -> bool:
-        """Return True if the engine can run (e.g. its binary is installed)."""
+        """Return True if the engine can run (e.g. its binary/daemon is reachable)."""
 
     @abstractmethod
-    async def run(self, target: str) -> str:
-        """Execute the engine against the target and return its raw output."""
+    async def run(self, target: str, on_progress: Optional[ProgressCallback] = None) -> str:
+        """Execute the engine against the target and return its raw output.
+
+        ``on_progress`` (optional) may be awaited to report intra-run progress.
+        """
 
     @abstractmethod
     def parse(self, raw: str) -> list[NormalizedFinding]:

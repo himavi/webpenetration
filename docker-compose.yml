@@ -11,6 +11,9 @@ services:
       # template tags so the demo stays quick. Clear NUCLEI_TAGS for a full scan.
       - NUCLEI_TIMEOUT=90
       - NUCLEI_TAGS=misconfig,misconfiguration,exposure,exposures,tech,ssl,default-login,takeover
+      # OWASP ZAP daemon (internal-only service below) for active scanning.
+      - ZAP_API_URL=http://zap:8090
+      - ZAP_TIMEOUT=180
     volumes:
       # Persists the SQLite database that arrives in the next task.
       - backend-data:/app/data
@@ -23,6 +26,18 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # OWASP ZAP running as a headless daemon, reachable only on the internal
+  # compose network (no host port). API key disabled since it is not exposed.
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    command: >
+      zap.sh -daemon -host 0.0.0.0 -port 8090
+      -config api.disablekey=true
+      -config api.addrs.addr.name=.*
+      -config api.addrs.addr.regex=true
+    expose:
+      - "8090"
 
   frontend:
     build: ./frontend

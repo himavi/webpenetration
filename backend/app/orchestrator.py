@@ -116,7 +116,9 @@ async def run_scan(
         )
         await asyncio.sleep(delay)
 
-        usable = [a for a in selected if a.supports(scan_type) and a.is_available()]
+        usable = await asyncio.to_thread(
+            lambda: [a for a in selected if a.supports(scan_type) and a.is_available()]
+        )
         if not usable:
             await _publish(
                 scan_id,
@@ -134,17 +136,28 @@ async def run_scan(
         total = 0
         count_engines = len(usable)
         for index, adapter in enumerate(usable):
+            band_start = max(5, int(index / count_engines * 90))
+            band_end = int((index + 1) / count_engines * 90)
+
             await _publish(
                 scan_id,
                 await asyncio.to_thread(
-                    _set_state,
-                    scan_id,
-                    progress=max(5, int(index / count_engines * 90)),
-                    message=f"running {adapter.name}",
+                    _set_state, scan_id, progress=band_start, message=f"running {adapter.name}"
                 ),
             )
+
+            # Map an adapter's own 0-100 progress into its slice of the overall bar.
+            async def on_progress(pct, message, _bs=band_start, _be=band_end, _name=adapter.name):
+                mapped = _bs + int(max(0, min(100, pct)) / 100 * (_be - _bs))
+                await _publish(
+                    scan_id,
+                    await asyncio.to_thread(
+                        _set_state, scan_id, progress=mapped, message=f"{_name}: {message}"
+                    ),
+                )
+
             try:
-                raw = await adapter.run(target)
+                raw = await adapter.run(target, on_progress=on_progress)
                 findings = adapter.parse(raw)
             except Exception as exc:  # noqa: BLE001 - one engine failing must not abort the scan
                 findings = []
@@ -162,7 +175,7 @@ async def run_scan(
                 await asyncio.to_thread(
                     _set_state,
                     scan_id,
-                    progress=int((index + 1) / count_engines * 90),
+                    progress=band_end,
                     message=f"{adapter.name}: {persisted} findings",
                 ),
             )
