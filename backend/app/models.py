@@ -122,6 +122,11 @@ class Finding(SQLModel, table=True):
     owasp_category: Optional[str] = Field(default=None)
     remediation: Optional[str] = Field(default=None)
 
+    # AI-generated (or template) enrichment, populated after engines run.
+    explanation: Optional[str] = Field(default=None)
+    impact: Optional[str] = Field(default=None)
+    ai_remediation: Optional[str] = Field(default=None)
+
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
 
     scan: Optional[Scan] = Relationship(back_populates="findings")

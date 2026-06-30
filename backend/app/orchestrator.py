@@ -12,7 +12,7 @@ import os
 from datetime import datetime, timezone
 from typing import Optional, Sequence
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.adapters import EngineAdapter, get_adapters
 from app.database import engine
@@ -85,6 +85,20 @@ def snapshot(scan_id: int) -> Optional[dict]:
         if scan is None:
             return None
         return ScanRead.model_validate(scan).model_dump(mode="json")
+
+
+def _explain_scan_findings(scan_id: int) -> None:
+    """Enrich a scan's findings with AI/template explanation, impact, remediation."""
+    from app.explainer import explain_findings
+
+    with Session(engine) as session:
+        findings = list(session.exec(select(Finding).where(Finding.scan_id == scan_id)).all())
+        if not findings:
+            return
+        explain_findings(findings)
+        for finding in findings:
+            session.add(finding)
+        session.commit()
 
 
 async def _publish(scan_id: int, event: Optional[dict]) -> None:
@@ -180,6 +194,15 @@ async def run_scan(
                 ),
             )
             await asyncio.sleep(delay)
+
+        # Enrich findings with plain-language explanations (AI or template).
+        await _publish(
+            scan_id,
+            await asyncio.to_thread(
+                _set_state, scan_id, progress=95, message="generating explanations"
+            ),
+        )
+        await asyncio.to_thread(_explain_scan_findings, scan_id)
 
         await _publish(
             scan_id,

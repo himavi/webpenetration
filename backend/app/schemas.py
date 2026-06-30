@@ -53,6 +53,9 @@ class FindingRead(BaseModel):
     cwe_id: Optional[str] = None
     owasp_category: Optional[str] = None
     remediation: Optional[str] = None
+    explanation: Optional[str] = None
+    impact: Optional[str] = None
+    ai_remediation: Optional[str] = None
     created_at: datetime
 
 

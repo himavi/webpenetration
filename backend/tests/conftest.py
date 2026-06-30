@@ -41,6 +41,20 @@ def _no_real_engines(monkeypatch):
     monkeypatch.setattr("app.orchestrator.get_adapters", lambda: [])
 
 
+@pytest.fixture(autouse=True)
+def _offline_ai(monkeypatch):
+    """Force the AI explainer offline (template fallback) and reset its cache.
+
+    Keeps tests deterministic and prevents accidental network calls if a real
+    GROQ/GEMINI key happens to be set in the developer's environment.
+    """
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    from app import explainer
+
+    explainer.clear_cache()
+
+
 @pytest.fixture(name="session")
 def session_fixture():
     with Session(database.engine) as session:
