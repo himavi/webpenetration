@@ -31,7 +31,24 @@ class FakeWebSocket {
 function fakeFetch() {
   return vi.fn(async (url, options) => {
     if (typeof url === 'string' && url.endsWith('/health')) {
-      return { ok: true, json: async () => ({ status: 'ok', service: 'x', version: '0.3.0' }) }
+      return { ok: true, json: async () => ({ status: 'ok', service: 'x', version: '0.4.0' }) }
+    }
+    if (typeof url === 'string' && url.endsWith('/api/scans/1/findings')) {
+      return {
+        ok: true,
+        json: async () => [
+          {
+            id: 10,
+            scan_id: 1,
+            engine: 'nuclei',
+            vuln_type: 'tech-detect',
+            severity: 'medium',
+            title: 'Technology detected',
+            location: 'https://example.com',
+            evidence: 'extracted: nginx',
+          },
+        ],
+      }
     }
     if (typeof url === 'string' && url.endsWith('/api/scans') && options?.method === 'POST') {
       return {
@@ -102,5 +119,9 @@ describe('scan submission flow', () => {
     )
     expect(await screen.findByText('100%')).toBeInTheDocument()
     expect(screen.getByText(/completed/i)).toBeInTheDocument()
+
+    // Once the scan is done, the real findings are fetched and listed.
+    expect(await screen.findByText('Technology detected')).toBeInTheDocument()
+    expect(screen.getByText('Findings (1)')).toBeInTheDocument()
   })
 })
