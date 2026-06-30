@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from app import __version__ as APP_VERSION
 from app.database import init_db
-from app.routers import dev, scans, upload
+from app.routers import dev, reports, scans, upload
 
 SERVICE_NAME = "ai-pentester-backend"
 
@@ -68,6 +68,7 @@ app.add_middleware(
 
 app.include_router(scans.router)
 app.include_router(upload.router)
+app.include_router(reports.router)
 app.include_router(dev.router)
 
 

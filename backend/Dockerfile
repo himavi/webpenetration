@@ -34,9 +34,15 @@ RUN apt-get update \
     && apt-get purge -y --auto-remove wget \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Install Nikto web scanner ---
+# --- Install Nikto web scanner + WeasyPrint native libs (for PDF reports) ---
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends nikto \
+    && apt-get install -y --no-install-recommends \
+        nikto \
+        libpango-1.0-0 \
+        libpangoft2-1.0-0 \
+        libharfbuzz0b \
+        libffi8 \
+        fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Install Semgrep for SAST ---
