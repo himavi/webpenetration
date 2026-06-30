@@ -1,0 +1,76 @@
+# Single-container image for Hugging Face Spaces (Docker SDK).
+# Builds the full backend with all engines, serves on port 7860 (HF default),
+# and runs in demo mode with sample reports pre-seeded.
+#
+# Deploy to HF Spaces:
+#   1. Create a new Space with Docker SDK
+#   2. Push this repo (or just this file + backend/) to the Space
+#   3. Set secrets: DEMO_MODE=1 (optional: GROQ_API_KEY for AI explanations)
+#
+# The frontend can be deployed separately on Vercel/Netlify pointing
+# VITE_API_BASE_URL at the Space's URL, or served as static files.
+
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEMO_MODE=1
+
+WORKDIR /app
+
+# --- Nuclei ---
+ARG NUCLEI_VERSION=3.9.0
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget unzip ca-certificates \
+    && wget -q "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.zip" -O /tmp/nuclei.zip \
+    && unzip -o /tmp/nuclei.zip nuclei -d /usr/local/bin \
+    && chmod +x /usr/local/bin/nuclei \
+    && rm -f /tmp/nuclei.zip \
+    && apt-get purge -y --auto-remove wget unzip \
+    && rm -rf /var/lib/apt/lists/*
+RUN nuclei -update-templates
+
+# --- sqlmap ---
+ARG SQLMAP_VERSION=1.10.6
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget ca-certificates \
+    && wget -q "https://github.com/sqlmapproject/sqlmap/archive/refs/tags/${SQLMAP_VERSION}.tar.gz" -O /tmp/sqlmap.tgz \
+    && mkdir -p /opt/sqlmap \
+    && tar -xzf /tmp/sqlmap.tgz -C /opt/sqlmap --strip-components=1 \
+    && chmod +x /opt/sqlmap/sqlmap.py \
+    && ln -s /opt/sqlmap/sqlmap.py /usr/local/bin/sqlmap \
+    && rm -f /tmp/sqlmap.tgz \
+    && apt-get purge -y --auto-remove wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- WeasyPrint native libs ---
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libpango-1.0-0 libpangoft2-1.0-0 fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Nikto from source ---
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git perl libnet-ssleay-perl libjson-perl libxml-writer-perl \
+    && git clone --depth 1 https://github.com/sullo/nikto /opt/nikto \
+    && chmod +x /opt/nikto/program/nikto.pl \
+    && printf '#!/bin/sh\nexec perl /opt/nikto/program/nikto.pl "$@"\n' > /usr/local/bin/nikto \
+    && chmod +x /usr/local/bin/nikto \
+    && apt-get purge -y --auto-remove git \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Semgrep ---
+RUN pip install --no-cache-dir semgrep
+
+# --- Python deps ---
+COPY backend/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# --- App code ---
+COPY backend/app ./app
+RUN mkdir -p /app/data
+
+EXPOSE 7860
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
