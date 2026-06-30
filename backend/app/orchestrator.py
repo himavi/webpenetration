@@ -1,34 +1,26 @@
-"""Async job-runner stub that drives a scan through queued -> running -> done.
+"""Async job runner: select engine adapters, run them, persist findings.
 
-There are no real engines yet (those arrive from Task 4). This simulates a
-sequence of progress steps, persists status/progress to the database, and
-publishes each snapshot to the progress broker so WebSocket clients see updates
-live. It uses plain ``asyncio`` tasks - the single-container job runner - rather
-than Celery/Redis.
+This is the single-container job runner (plain ``asyncio`` tasks, no
+Celery/Redis). For a scan it marks the job running, picks the adapters that
+apply to the scan type and are available, runs each against the target,
+persists their normalized findings, streams progress to the broker, and finally
+marks the scan done.
 """
 
 import asyncio
 import os
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Sequence
 
 from sqlmodel import Session
 
+from app.adapters import EngineAdapter, get_adapters
 from app.database import engine
 from app.events import broker
-from app.models import Scan, ScanStatus
-from app.schemas import ScanRead
+from app.models import Finding, Scan, ScanStatus, ScanType
+from app.schemas import NormalizedFinding, ScanRead
 
-DEFAULT_STEP_DELAY = 0.6
-
-# (progress, message) milestones the stub walks through while "scanning".
-STEPS: list[tuple[int, str]] = [
-    (10, "initializing scan engines"),
-    (30, "spidering target"),
-    (55, "passive analysis"),
-    (80, "active vulnerability checks"),
-    (95, "correlating and normalizing findings"),
-]
+DEFAULT_STEP_DELAY = 0.4
 
 # Keep strong references to in-flight tasks so they are not garbage collected.
 _tasks: set[asyncio.Task] = set()
@@ -41,7 +33,7 @@ def _resolve_step_delay() -> float:
         return DEFAULT_STEP_DELAY
 
 
-def _apply(
+def _set_state(
     scan_id: int,
     *,
     status: Optional[ScanStatus] = None,
@@ -68,6 +60,24 @@ def _apply(
         return ScanRead.model_validate(scan).model_dump(mode="json")
 
 
+def _get_scan_brief(scan_id: int) -> Optional[tuple[str, ScanType]]:
+    with Session(engine) as session:
+        scan = session.get(Scan, scan_id)
+        if scan is None:
+            return None
+        return scan.target, scan.scan_type
+
+
+def _persist_findings(scan_id: int, findings: Sequence[NormalizedFinding]) -> int:
+    if not findings:
+        return 0
+    with Session(engine) as session:
+        for finding in findings:
+            session.add(Finding(scan_id=scan_id, **finding.model_dump()))
+        session.commit()
+    return len(findings)
+
+
 def snapshot(scan_id: int) -> Optional[dict]:
     """Return the current JSON-ready snapshot of a scan, or None if missing."""
     with Session(engine) as session:
@@ -77,44 +87,105 @@ def snapshot(scan_id: int) -> Optional[dict]:
         return ScanRead.model_validate(scan).model_dump(mode="json")
 
 
-async def run_scan(scan_id: int, *, step_delay: Optional[float] = None) -> None:
-    """Walk a scan through its simulated lifecycle, persisting and publishing."""
-    delay = _resolve_step_delay() if step_delay is None else step_delay
-    try:
-        event = await asyncio.to_thread(
-            _apply, scan_id, status=ScanStatus.RUNNING, progress=0, message="starting"
-        )
-        if event is None:
-            return  # scan was deleted before it started
+async def _publish(scan_id: int, event: Optional[dict]) -> None:
+    if event is not None:
         await broker.publish(scan_id, event)
 
-        for progress, message in STEPS:
-            await asyncio.sleep(delay)
-            event = await asyncio.to_thread(_apply, scan_id, progress=progress, message=message)
-            if event is not None:
-                await broker.publish(scan_id, event)
 
+async def run_scan(
+    scan_id: int,
+    *,
+    adapters: Optional[Sequence[EngineAdapter]] = None,
+    step_delay: Optional[float] = None,
+) -> None:
+    """Run the applicable, available adapters against the scan's target."""
+    delay = _resolve_step_delay() if step_delay is None else step_delay
+    selected = list(adapters) if adapters is not None else get_adapters()
+
+    try:
+        brief = await asyncio.to_thread(_get_scan_brief, scan_id)
+        if brief is None:
+            return  # scan was deleted before it started
+        target, scan_type = brief
+
+        await _publish(
+            scan_id,
+            await asyncio.to_thread(
+                _set_state, scan_id, status=ScanStatus.RUNNING, progress=0, message="starting"
+            ),
+        )
         await asyncio.sleep(delay)
-        event = await asyncio.to_thread(
-            _apply,
+
+        usable = [a for a in selected if a.supports(scan_type) and a.is_available()]
+        if not usable:
+            await _publish(
+                scan_id,
+                await asyncio.to_thread(
+                    _set_state,
+                    scan_id,
+                    status=ScanStatus.DONE,
+                    progress=100,
+                    message="completed: no engines available",
+                    finished=True,
+                ),
+            )
+            return
+
+        total = 0
+        count_engines = len(usable)
+        for index, adapter in enumerate(usable):
+            await _publish(
+                scan_id,
+                await asyncio.to_thread(
+                    _set_state,
+                    scan_id,
+                    progress=max(5, int(index / count_engines * 90)),
+                    message=f"running {adapter.name}",
+                ),
+            )
+            try:
+                raw = await adapter.run(target)
+                findings = adapter.parse(raw)
+            except Exception as exc:  # noqa: BLE001 - one engine failing must not abort the scan
+                findings = []
+                await _publish(
+                    scan_id,
+                    await asyncio.to_thread(
+                        _set_state, scan_id, message=f"{adapter.name} failed: {exc}"
+                    ),
+                )
+
+            persisted = await asyncio.to_thread(_persist_findings, scan_id, findings)
+            total += persisted
+            await _publish(
+                scan_id,
+                await asyncio.to_thread(
+                    _set_state,
+                    scan_id,
+                    progress=int((index + 1) / count_engines * 90),
+                    message=f"{adapter.name}: {persisted} findings",
+                ),
+            )
+            await asyncio.sleep(delay)
+
+        await _publish(
             scan_id,
-            status=ScanStatus.DONE,
-            progress=100,
-            message="scan complete",
-            finished=True,
+            await asyncio.to_thread(
+                _set_state,
+                scan_id,
+                status=ScanStatus.DONE,
+                progress=100,
+                message=f"completed: {total} findings",
+                finished=True,
+            ),
         )
-        if event is not None:
-            await broker.publish(scan_id, event)
-    except Exception as exc:  # noqa: BLE001 - stub: surface any failure as a failed scan
-        event = await asyncio.to_thread(
-            _apply,
+    except Exception as exc:  # noqa: BLE001 - surface unexpected failures as a failed scan
+        await _publish(
             scan_id,
-            status=ScanStatus.FAILED,
-            message=f"scan failed: {exc}",
-            finished=True,
+            await asyncio.to_thread(
+                _set_state, scan_id, status=ScanStatus.FAILED, message=f"scan failed: {exc}", finished=True
+            ),
         )
-        if event is not None:
-            await broker.publish(scan_id, event)
 
 
 def schedule_scan(scan_id: int, *, step_delay: Optional[float] = None) -> asyncio.Task:

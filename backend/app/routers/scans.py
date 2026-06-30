@@ -3,17 +3,25 @@
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app import orchestrator
 from app.database import get_session
 from app.events import broker
-from app.models import Scan, ScanStatus
-from app.schemas import ScanCreate, ScanRead
+from app.models import Finding, Scan, ScanStatus, Severity
+from app.schemas import FindingRead, ScanCreate, ScanRead
 
 router = APIRouter(prefix="/api", tags=["scans"])
 
 _TERMINAL = {ScanStatus.DONE.value, ScanStatus.FAILED.value}
+
+_SEVERITY_RANK = {
+    Severity.CRITICAL: 5,
+    Severity.HIGH: 4,
+    Severity.MEDIUM: 3,
+    Severity.LOW: 2,
+    Severity.INFO: 1,
+}
 
 
 @router.post("/scans", response_model=ScanRead, status_code=status.HTTP_201_CREATED)
@@ -43,6 +51,17 @@ def get_scan(scan_id: int, session: Session = Depends(get_session)) -> Scan:
     if scan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="scan not found")
     return scan
+
+
+@router.get("/scans/{scan_id}/findings", response_model=list[FindingRead])
+def list_findings(scan_id: int, session: Session = Depends(get_session)) -> list[Finding]:
+    """Return a scan's findings, most severe first."""
+    scan = session.get(Scan, scan_id)
+    if scan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="scan not found")
+    findings = list(session.exec(select(Finding).where(Finding.scan_id == scan_id)).all())
+    findings.sort(key=lambda f: (_SEVERITY_RANK.get(f.severity, 0), f.id or 0), reverse=True)
+    return findings
 
 
 @router.websocket("/scans/{scan_id}/ws")
