@@ -16,11 +16,13 @@ output into a single finding schema, and turns the results into a clear report.
 ## Status
 
 This repository is built in small, demoable increments. The latest commit adds
-the **unified data layer**: SQLModel/SQLite models for scans, findings, and
-reports, a normalized finding schema that every engine adapter will map into,
-database setup on startup, and a temporary route to seed and fetch a sample
-finding. Earlier work delivered the project scaffold (FastAPI backend with a
-health check, a React status page, a test harness for both, and Docker Compose).
+**scan submission with a consent gate and live progress**: a `POST /api/scans`
+that refuses to run without an explicit authorization acknowledgment, an async
+orchestrator stub that walks a scan through queued -> running -> done, live
+updates over WebSocket (with a polling fallback), and a frontend form that
+submits a target and shows progress in real time. Earlier increments delivered
+the unified data layer (SQLModel/SQLite models + normalized finding schema) and
+the project scaffold (FastAPI + React + Docker Compose).
 
 ## Planned capabilities
 
@@ -49,16 +51,22 @@ health check, a React status page, a test harness for both, and Docker Compose).
 ├── backend/                 FastAPI service
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── main.py          # /health + root, app startup (table creation)
+│   │   ├── main.py          # health + root, app startup (table creation)
 │   │   ├── database.py      # engine, session dependency, init_db
 │   │   ├── models.py        # Scan / Finding / Report tables + enums
-│   │   ├── schemas.py       # NormalizedFinding + API read models
+│   │   ├── schemas.py       # NormalizedFinding + API read/submit models
+│   │   ├── events.py        # in-memory progress pub/sub broker
+│   │   ├── orchestrator.py  # async job-runner stub (queued -> running -> done)
 │   │   └── routers/
+│   │       ├── scans.py     # POST/GET /scans + WebSocket progress
 │   │       └── dev.py       # temporary seed/fetch routes
 │   ├── tests/
 │   │   ├── test_health.py
 │   │   ├── test_models.py
 │   │   ├── test_schemas.py
+│   │   ├── test_scans_api.py
+│   │   ├── test_orchestrator.py
+│   │   ├── test_scan_ws.py
 │   │   └── test_dev_routes.py
 │   ├── Dockerfile
 │   ├── pyproject.toml
@@ -66,13 +74,15 @@ health check, a React status page, a test harness for both, and Docker Compose).
 │   └── requirements-dev.txt  # test deps
 ├── frontend/                React + Vite app
 │   ├── src/
-│   │   ├── api.js           # calls /health
-│   │   ├── App.jsx          # status page
-│   │   ├── App.test.jsx
+│   │   ├── api.js           # health, createScan, getScan, live subscribe
+│   │   ├── App.jsx          # submit form + live progress
+│   │   ├── components/
+│   │   │   ├── ScanForm.jsx       # target + consent gate
+│   │   │   └── ScanProgress.jsx   # live status + progress bar
 │   │   ├── index.css
 │   │   └── main.jsx
 │   ├── Dockerfile           # build -> nginx
-│   ├── nginx.conf           # serves the app, proxies /health + /api
+│   ├── nginx.conf           # serves the app, proxies /health + /api (+ ws)
 │   ├── index.html
 │   └── vite.config.js
 └── docker-compose.yml
@@ -86,8 +96,9 @@ The fastest way to see everything running:
 docker compose up --build
 ```
 
-Then open <http://localhost:8080>. The page polls the backend and shows
-**"backend healthy"** once the API is up. The API itself is on
+Then open <http://localhost:8080>. The page shows **"backend healthy"** once the
+API is up. Enter a target URL, confirm authorization, and start a scan to watch
+it move through **queued -> running -> done** live. The API itself is on
 <http://localhost:8000> (interactive docs at `/docs`).
 
 ### Try the data layer (temporary dev route)
@@ -152,13 +163,14 @@ npm test
 | --- | --- | --- | --- |
 | `ALLOWED_ORIGINS` | backend | `http://localhost:5173,http://localhost:8080` | Comma-separated CORS origins allowed to call the API directly. |
 | `DATABASE_URL` | backend | `sqlite:///./data/app.db` | SQLModel/SQLAlchemy database URL. Defaults to a SQLite file on the mounted data volume. |
+| `SCAN_STEP_DELAY` | backend | `0.6` | Seconds between simulated orchestrator progress steps (stub; lower it to speed up demos). |
 | `VITE_API_BASE_URL` | frontend | _(empty)_ | Override the backend origin. Empty means same-origin requests through the dev/nginx proxy. |
 
 ## Roadmap
 
 1. **Scaffold + health check + test harness** *(done)*
 2. **Unified finding schema + data layer** *(done)*
-3. Consent gate + scan submission + live status
+3. **Consent gate + scan submission + live status** *(done)*
 4. Engine adapter framework + Nuclei
 5. OWASP ZAP integration (XSS, SSRF, CSRF, headers)
 6. sqlmap integration (SQL injection)
