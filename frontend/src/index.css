@@ -84,3 +84,148 @@ body {
   color: var(--muted);
   font-size: 0.85rem;
 }
+
+.app__header .status {
+  margin-top: 1.25rem;
+}
+
+.app__notice {
+  margin: 1.75rem 0 1rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(244, 196, 48, 0.1);
+  border: 1px solid rgba(244, 196, 48, 0.3);
+  color: #f4d06a;
+  font-size: 0.85rem;
+}
+
+.scan-form {
+  display: grid;
+  gap: 1rem;
+  text-align: left;
+}
+
+.field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field__label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.scan-form input[type='url'],
+.scan-form select {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0f1626;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.scan-form input[type='url']:focus,
+.scan-form select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.25);
+}
+
+.consent {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.consent input {
+  margin-top: 0.2rem;
+}
+
+.button {
+  padding: 0.8rem 1.1rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.app__error {
+  margin: 1rem 0 0;
+  color: var(--warn);
+  font-size: 0.9rem;
+}
+
+.progress {
+  margin-top: 1.75rem;
+  padding: 1.1rem 1.25rem;
+  border-radius: 12px;
+  background: #0f1626;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.progress__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+}
+
+.progress__pct {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress__bar {
+  height: 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.35s ease;
+}
+
+.progress--done .progress__fill {
+  background: var(--ok);
+}
+
+.progress--failed .progress__fill {
+  background: var(--warn);
+}
+
+.progress__message {
+  margin: 0.7rem 0 0;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.progress__target {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  word-break: break-all;
+}

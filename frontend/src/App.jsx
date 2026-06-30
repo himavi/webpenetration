@@ -1,59 +1,91 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { fetchHealth } from './api.js'
+import { createScan, fetchHealth, subscribeScan } from './api.js'
+import ScanForm from './components/ScanForm.jsx'
+import ScanProgress from './components/ScanProgress.jsx'
 
-const Status = {
+const Health = {
   LOADING: 'loading',
   HEALTHY: 'healthy',
   UNHEALTHY: 'unhealthy',
 }
 
-const LABELS = {
-  [Status.LOADING]: 'checking backend…',
-  [Status.HEALTHY]: 'backend healthy',
-  [Status.UNHEALTHY]: 'backend unavailable',
+const HEALTH_LABELS = {
+  [Health.LOADING]: 'checking backend…',
+  [Health.HEALTHY]: 'backend healthy',
+  [Health.UNHEALTHY]: 'backend unavailable',
 }
 
 export default function App() {
-  const [status, setStatus] = useState(Status.LOADING)
-  const [info, setInfo] = useState(null)
+  const [health, setHealth] = useState(Health.LOADING)
+  const [scan, setScan] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
+  const unsubscribeRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
-
     fetchHealth()
       .then((data) => {
-        if (cancelled) return
-        setInfo(data)
-        setStatus(data?.status === 'ok' ? Status.HEALTHY : Status.UNHEALTHY)
+        if (!cancelled) setHealth(data?.status === 'ok' ? Health.HEALTHY : Health.UNHEALTHY)
       })
       .catch(() => {
-        if (!cancelled) setStatus(Status.UNHEALTHY)
+        if (!cancelled) setHealth(Health.UNHEALTHY)
       })
-
     return () => {
       cancelled = true
     }
   }, [])
+
+  // Tear down any live subscription when the app unmounts.
+  useEffect(() => () => unsubscribeRef.current?.(), [])
+
+  const handleSubmit = async ({ target, scanType, authorized }) => {
+    setError(null)
+    setSubmitting(true)
+    unsubscribeRef.current?.()
+    unsubscribeRef.current = null
+
+    try {
+      const created = await createScan({ target, scanType, authorized })
+      setScan(created)
+      unsubscribeRef.current = subscribeScan(created.id, {
+        onUpdate: (data) => setScan((prev) => ({ ...prev, ...data })),
+      })
+    } catch (err) {
+      setScan(null)
+      setError(err.message ?? 'Failed to start scan')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <main className="app">
       <header className="app__header">
         <h1>AI Penetration Tester</h1>
         <p className="app__tagline">
-          Coordinated open-source security scanning with plain-language AI
-          explanations.
+          Coordinated open-source security scanning with plain-language AI explanations.
         </p>
+        <span className={`status status--${health}`} role="status" aria-live="polite">
+          <span className="status__dot" aria-hidden="true" />
+          <span className="status__label">{HEALTH_LABELS[health]}</span>
+        </span>
       </header>
 
-      <section className={`status status--${status}`} role="status" aria-live="polite">
-        <span className="status__dot" aria-hidden="true" />
-        <span className="status__label">{LABELS[status]}</span>
-      </section>
+      <p className="app__notice">
+        Authorized testing only — scan systems you own or have explicit permission to test.
+      </p>
 
-      {info?.version ? (
-        <p className="app__meta">backend version {info.version}</p>
+      <ScanForm onSubmit={handleSubmit} busy={submitting} />
+
+      {error ? (
+        <p className="app__error" role="alert">
+          {error}
+        </p>
       ) : null}
+
+      <ScanProgress scan={scan} />
     </main>
   )
 }
