@@ -50,7 +50,7 @@ class NiktoAdapter(EngineAdapter):
     def is_available(self) -> bool:
         return shutil.which(self.binary) is not None
 
-    async def run(self, target: str, on_progress=None) -> str:
+    async def run(self, target: str, on_progress=None, **kwargs) -> str:
         if on_progress:
             await on_progress(5, "nikto scanning")
 

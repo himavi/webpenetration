@@ -44,7 +44,7 @@ class AuthChecksAdapter(EngineAdapter):
     def is_available(self) -> bool:
         return True  # no external dependency
 
-    async def run(self, target: str, on_progress=None) -> str:
+    async def run(self, target: str, on_progress=None, **kwargs) -> str:
         """Fetch the target and serialize response details for parsing."""
         if on_progress:
             await on_progress(10, "fetching target for auth analysis")

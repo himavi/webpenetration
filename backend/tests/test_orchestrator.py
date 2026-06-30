@@ -22,7 +22,7 @@ class FakeAdapter(EngineAdapter):
     def is_available(self):
         return self._available
 
-    async def run(self, target, on_progress=None):
+    async def run(self, target, on_progress=None, **kwargs):
         return "raw-output"
 
     def parse(self, raw):
@@ -94,7 +94,7 @@ def test_orchestrator_runs_nuclei_with_subprocess_stubbed(monkeypatch):
     )
     adapter = NucleiAdapter()
 
-    async def fake_run(target, on_progress=None):
+    async def fake_run(target, on_progress=None, **kwargs):
         return sample
 
     monkeypatch.setattr(adapter, "run", fake_run)
@@ -116,7 +116,7 @@ def test_orchestrator_handles_adapter_error_gracefully():
         def is_available(self):
             return True
 
-        async def run(self, target, on_progress=None):
+        async def run(self, target, on_progress=None, **kwargs):
             raise RuntimeError("boom")
 
         def parse(self, raw):

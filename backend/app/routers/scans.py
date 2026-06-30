@@ -30,6 +30,7 @@ async def create_scan(payload: ScanCreate, session: Session = Depends(get_sessio
     scan = Scan(
         target=payload.target,
         scan_type=payload.scan_type,
+        spec_url=payload.spec_url,
         status=ScanStatus.QUEUED,
         progress=0,
         message="queued",

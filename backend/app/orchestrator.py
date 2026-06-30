@@ -60,12 +60,12 @@ def _set_state(
         return ScanRead.model_validate(scan).model_dump(mode="json")
 
 
-def _get_scan_brief(scan_id: int) -> Optional[tuple[str, ScanType]]:
+def _get_scan_brief(scan_id: int) -> Optional[tuple[str, ScanType, Optional[str]]]:
     with Session(engine) as session:
         scan = session.get(Scan, scan_id)
         if scan is None:
             return None
-        return scan.target, scan.scan_type
+        return scan.target, scan.scan_type, getattr(scan, "spec_url", None)
 
 
 def _persist_findings(scan_id: int, findings: Sequence[NormalizedFinding]) -> int:
@@ -106,7 +106,7 @@ async def run_scan(
         brief = await asyncio.to_thread(_get_scan_brief, scan_id)
         if brief is None:
             return  # scan was deleted before it started
-        target, scan_type = brief
+        target, scan_type, spec_url = brief
 
         await _publish(
             scan_id,
@@ -157,7 +157,7 @@ async def run_scan(
                 )
 
             try:
-                raw = await adapter.run(target, on_progress=on_progress)
+                raw = await adapter.run(target, on_progress=on_progress, spec_url=spec_url)
                 findings = adapter.parse(raw)
             except Exception as exc:  # noqa: BLE001 - one engine failing must not abort the scan
                 findings = []

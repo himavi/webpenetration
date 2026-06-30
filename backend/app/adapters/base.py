@@ -31,10 +31,11 @@ class EngineAdapter(ABC):
         """Return True if the engine can run (e.g. its binary/daemon is reachable)."""
 
     @abstractmethod
-    async def run(self, target: str, on_progress: Optional[ProgressCallback] = None) -> str:
+    async def run(self, target: str, on_progress: Optional[ProgressCallback] = None, **kwargs) -> str:
         """Execute the engine against the target and return its raw output.
 
         ``on_progress`` (optional) may be awaited to report intra-run progress.
+        ``kwargs`` may carry extra scan metadata (e.g. ``spec_url`` for API fuzzing).
         """
 
     @abstractmethod

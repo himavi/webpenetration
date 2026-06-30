@@ -60,7 +60,7 @@ class ZapAdapter(EngineAdapter):
         except Exception:  # noqa: BLE001 - any failure means "not reachable"
             return False
 
-    async def run(self, target: str, on_progress=None) -> str:
+    async def run(self, target: str, on_progress=None, **kwargs) -> str:
         deadline = time.monotonic() + self.overall_timeout
 
         async def report(pct: int, message: str) -> None:

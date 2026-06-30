@@ -75,7 +75,7 @@ class SqlmapAdapter(EngineAdapter):
             cmd += self.extra_args.split()
         return cmd
 
-    async def run(self, target: str, on_progress=None) -> str:
+    async def run(self, target: str, on_progress=None, **kwargs) -> str:
         self._last_target = target
         if on_progress is not None:
             await on_progress(5, "probing for sql injection")

@@ -6,3 +6,4 @@ pydantic==2.13.4
 sqlmodel==0.0.39
 SQLAlchemy==2.0.51
 httpx==0.28.1
+schemathesis

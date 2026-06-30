@@ -66,6 +66,11 @@ class ScanCreate(BaseModel):
 
     target: str = Field(min_length=1, max_length=2048)
     scan_type: ScanType = ScanType.DAST
+    spec_url: Optional[str] = Field(
+        default=None,
+        max_length=2048,
+        description="Optional OpenAPI/Swagger spec URL for API fuzzing.",
+    )
     authorized: bool = Field(
         description="Must be true to confirm you are authorized to test this target.",
     )
@@ -108,6 +113,7 @@ class ScanRead(BaseModel):
     status: ScanStatus
     progress: int
     message: Optional[str] = None
+    spec_url: Optional[str] = None
     created_at: datetime
     finished_at: Optional[datetime] = None
 
