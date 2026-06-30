@@ -1,0 +1,10 @@
+[project]
+name = "ai-pentester-backend"
+version = "0.1.0"
+description = "Backend for the AI Penetration Tester project."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"

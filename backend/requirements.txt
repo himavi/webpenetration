@@ -1,0 +1,4 @@
+# Runtime dependencies for the AI Penetration Tester backend.
+fastapi==0.138.2
+uvicorn==0.49.0
+pydantic==2.13.4
