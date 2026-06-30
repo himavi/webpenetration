@@ -15,10 +15,12 @@ output into a single finding schema, and turns the results into a clear report.
 
 ## Status
 
-This repository is built in small, demoable increments. **Task 1 (this commit)**
-is the project scaffold: a FastAPI backend with a health check, a React
-status page that reports backend health, a test harness for both, and a
-Docker Compose setup that runs the whole thing.
+This repository is built in small, demoable increments. The latest commit adds
+the **unified data layer**: SQLModel/SQLite models for scans, findings, and
+reports, a normalized finding schema that every engine adapter will map into,
+database setup on startup, and a temporary route to seed and fetch a sample
+finding. Earlier work delivered the project scaffold (FastAPI backend with a
+health check, a React status page, a test harness for both, and Docker Compose).
 
 ## Planned capabilities
 
@@ -47,9 +49,17 @@ Docker Compose setup that runs the whole thing.
 ├── backend/                 FastAPI service
 │   ├── app/
 │   │   ├── __init__.py
-│   │   └── main.py          # /health + root info endpoints
+│   │   ├── main.py          # /health + root, app startup (table creation)
+│   │   ├── database.py      # engine, session dependency, init_db
+│   │   ├── models.py        # Scan / Finding / Report tables + enums
+│   │   ├── schemas.py       # NormalizedFinding + API read models
+│   │   └── routers/
+│   │       └── dev.py       # temporary seed/fetch routes
 │   ├── tests/
-│   │   └── test_health.py
+│   │   ├── test_health.py
+│   │   ├── test_models.py
+│   │   ├── test_schemas.py
+│   │   └── test_dev_routes.py
 │   ├── Dockerfile
 │   ├── pyproject.toml
 │   ├── requirements.txt      # runtime deps
@@ -79,6 +89,22 @@ docker compose up --build
 Then open <http://localhost:8080>. The page polls the backend and shows
 **"backend healthy"** once the API is up. The API itself is on
 <http://localhost:8000> (interactive docs at `/docs`).
+
+### Try the data layer (temporary dev route)
+
+While the real scan API is still being built, a temporary route lets you seed a
+sample finding and read it back through the API:
+
+```bash
+# create a sample scan + finding
+curl -X POST http://localhost:8000/api/dev/seed
+# fetch a finding by id, or a scan together with its findings
+curl http://localhost:8000/api/dev/findings/1
+curl http://localhost:8000/api/dev/scans/1
+```
+
+These `/api/dev/*` routes exist only for the demo and will be removed once scan
+submission and the orchestrator land.
 
 ## Local development
 
@@ -125,12 +151,13 @@ npm test
 | Variable | Where | Default | Purpose |
 | --- | --- | --- | --- |
 | `ALLOWED_ORIGINS` | backend | `http://localhost:5173,http://localhost:8080` | Comma-separated CORS origins allowed to call the API directly. |
+| `DATABASE_URL` | backend | `sqlite:///./data/app.db` | SQLModel/SQLAlchemy database URL. Defaults to a SQLite file on the mounted data volume. |
 | `VITE_API_BASE_URL` | frontend | _(empty)_ | Override the backend origin. Empty means same-origin requests through the dev/nginx proxy. |
 
 ## Roadmap
 
 1. **Scaffold + health check + test harness** *(done)*
-2. Unified finding schema + data layer
+2. **Unified finding schema + data layer** *(done)*
 3. Consent gate + scan submission + live status
 4. Engine adapter framework + Nuclei
 5. OWASP ZAP integration (XSS, SSRF, CSRF, headers)
