@@ -1,38 +1,44 @@
 """Shared pytest fixtures.
 
-Each test gets an isolated in-memory SQLite database (StaticPool keeps the
-single shared connection alive), and the API's ``get_session`` dependency is
-overridden to use it. The TestClient is created without the lifespan context
-manager so startup never touches the real on-disk database.
+The orchestrator runs in background tasks and opens its own database sessions,
+so request handlers and the orchestrator must share the *same* engine. We point
+the real engine at a temporary SQLite file (configured before the app is
+imported) and reset the tables before each test for isolation. Scans run with
+no step delay so tests stay fast.
 """
 
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
+import os
+import tempfile
+from pathlib import Path
 
-from app.database import get_session
-from app.main import app
+# Configure the database + fast scans BEFORE importing the app.
+_TMP_DIR = tempfile.mkdtemp(prefix="aipentest-")
+os.environ["DATABASE_URL"] = "sqlite:///" + str(Path(_TMP_DIR, "test.db")).replace("\\", "/")
+os.environ.setdefault("SCAN_STEP_DELAY", "0")
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlmodel import Session, SQLModel  # noqa: E402
+
+from app import database  # noqa: E402
+from app.main import app  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _fresh_db():
+    """Give every test a clean schema on the shared engine."""
+    SQLModel.metadata.drop_all(database.engine)
+    SQLModel.metadata.create_all(database.engine)
+    yield
 
 
 @pytest.fixture(name="session")
 def session_fixture():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
+    with Session(database.engine) as session:
         yield session
 
 
 @pytest.fixture(name="client")
-def client_fixture(session: Session):
-    def get_session_override():
-        return session
-
-    app.dependency_overrides[get_session] = get_session_override
-    client = TestClient(app)
-    yield client
-    app.dependency_overrides.clear()
+def client_fixture():
+    with TestClient(app) as client:
+        yield client
