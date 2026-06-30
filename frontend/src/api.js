@@ -22,7 +22,28 @@ function describeError(data, fallback) {
   return fallback
 }
 
-export async function createScan({ target, scanType = 'dast', authorized }) {
+export async function createScan({ target, scanType = 'dast', authorized, file = null }) {
+  // If a file is provided, use the multipart upload endpoint.
+  if (file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('target', target)
+    formData.append('scan_type', scanType)
+    formData.append('authorized', String(authorized))
+    const response = await fetch(`${API_BASE_URL}/api/scans/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!response.ok) {
+      let data = null
+      try { data = await response.json() } catch { /* ignore */ }
+      const error = new Error(describeError(data, `Upload failed (${response.status})`))
+      error.status = response.status
+      throw error
+    }
+    return response.json()
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/scans`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -35,6 +35,7 @@ class ScanType(str, enum.Enum):
 
     DAST = "dast"
     SAST = "sast"
+    BOTH = "both"
 
 
 class ScanStatus(str, enum.Enum):
@@ -77,6 +78,7 @@ class Scan(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     target: str = Field(index=True)
     spec_url: Optional[str] = Field(default=None)
+    source_path: Optional[str] = Field(default=None)
     scan_type: ScanType = Field(sa_column=_enum_column(ScanType, nullable=False))
     status: ScanStatus = Field(
         default=ScanStatus.QUEUED,

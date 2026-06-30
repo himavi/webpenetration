@@ -5,6 +5,7 @@ from app.adapters.base import EngineAdapter
 from app.adapters.nikto import NiktoAdapter
 from app.adapters.nuclei import NucleiAdapter
 from app.adapters.schemathesis_adapter import SchemathesisAdapter
+from app.adapters.semgrep import SemgrepAdapter
 from app.adapters.sqlmap import SqlmapAdapter
 from app.adapters.zap import ZapAdapter
 
@@ -16,6 +17,7 @@ __all__ = [
     "NiktoAdapter",
     "AuthChecksAdapter",
     "SchemathesisAdapter",
+    "SemgrepAdapter",
     "get_adapters",
 ]
 
@@ -34,4 +36,5 @@ def get_adapters() -> list[EngineAdapter]:
         NiktoAdapter(),
         AuthChecksAdapter(),
         SchemathesisAdapter(),
+        SemgrepAdapter(),
     ]

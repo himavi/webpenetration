@@ -95,7 +95,7 @@ class ScanCreate(BaseModel):
 
     @model_validator(mode="after")
     def _dast_target_must_be_url(self) -> "ScanCreate":
-        if self.scan_type == ScanType.DAST and not self.target.lower().startswith(
+        if self.scan_type in (ScanType.DAST, ScanType.BOTH) and not self.target.lower().startswith(
             ("http://", "https://")
         ):
             raise ValueError("a DAST target must be an http:// or https:// URL")

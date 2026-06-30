@@ -1,36 +1,53 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 const SCAN_TYPES = [
   { value: 'dast', label: 'Dynamic — live URL (DAST)' },
-  { value: 'sast', label: 'Static — source upload (coming soon)', disabled: true },
+  { value: 'sast', label: 'Static — source upload (SAST)' },
+  { value: 'both', label: 'Both — URL + source upload' },
 ]
 
 export default function ScanForm({ onSubmit, busy = false }) {
   const [target, setTarget] = useState('')
   const [scanType, setScanType] = useState('dast')
   const [authorized, setAuthorized] = useState(false)
+  const [file, setFile] = useState(null)
+  const fileRef = useRef(null)
 
-  const canSubmit = target.trim().length > 0 && authorized && !busy
+  const needsUrl = scanType === 'dast' || scanType === 'both'
+  const needsFile = scanType === 'sast' || scanType === 'both'
+
+  const canSubmit =
+    authorized &&
+    !busy &&
+    (needsUrl ? target.trim().length > 0 : true) &&
+    (needsFile ? file != null : true)
 
   const handleSubmit = (event) => {
     event.preventDefault()
     if (!canSubmit) return
-    onSubmit({ target: target.trim(), scanType, authorized })
+    onSubmit({
+      target: target.trim() || 'uploaded-source',
+      scanType,
+      authorized,
+      file: needsFile ? file : null,
+    })
   }
 
   return (
     <form className="scan-form" onSubmit={handleSubmit} noValidate>
-      <label className="field">
-        <span className="field__label">Target URL</span>
-        <input
-          type="url"
-          name="target"
-          placeholder="https://example.com"
-          value={target}
-          onChange={(event) => setTarget(event.target.value)}
-          autoComplete="off"
-        />
-      </label>
+      {needsUrl && (
+        <label className="field">
+          <span className="field__label">Target URL</span>
+          <input
+            type="url"
+            name="target"
+            placeholder="https://example.com"
+            value={target}
+            onChange={(event) => setTarget(event.target.value)}
+            autoComplete="off"
+          />
+        </label>
+      )}
 
       <label className="field">
         <span className="field__label">Scan type</span>
@@ -42,6 +59,19 @@ export default function ScanForm({ onSubmit, busy = false }) {
           ))}
         </select>
       </label>
+
+      {needsFile && (
+        <label className="field">
+          <span className="field__label">Source code (.zip)</span>
+          <input
+            type="file"
+            name="source"
+            accept=".zip"
+            ref={fileRef}
+            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          />
+        </label>
+      )}
 
       <label className="consent">
         <input

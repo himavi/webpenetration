@@ -42,6 +42,13 @@ class EngineAdapter(ABC):
     def parse(self, raw: str) -> list[NormalizedFinding]:
         """Convert raw engine output into a list of unified findings."""
 
-    def supports(self, scan_type: ScanType) -> bool:
-        """Whether this adapter should run for the given scan type."""
+    def supports(self, scan_type: "ScanType") -> bool:
+        """Whether this adapter should run for the given scan type.
+
+        A ``BOTH`` scan runs all adapters (both DAST and SAST).
+        """
+        from app.models import ScanType as ST
+
+        if scan_type == ST.BOTH:
+            return True
         return scan_type in self.supported_scan_types

@@ -30,10 +30,12 @@ describe('ScanForm consent gate', () => {
 
     await user.click(screen.getByLabelText(/authorized to test/i))
     await user.click(screen.getByRole('button', { name: /start scan/i }))
-    expect(onSubmit).toHaveBeenCalledWith({
-      target: 'https://example.com',
-      scanType: 'dast',
-      authorized: true,
-    })
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: 'https://example.com',
+        scanType: 'dast',
+        authorized: true,
+      }),
+    )
   })
 })

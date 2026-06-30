@@ -39,6 +39,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends nikto \
     && rm -rf /var/lib/apt/lists/*
 
+# --- Install Semgrep for SAST ---
+RUN pip install --no-cache-dir semgrep
+
 # Install Python dependencies (separate layer to leverage Docker layer caching).
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
