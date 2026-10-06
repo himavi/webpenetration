@@ -15,6 +15,15 @@ import Login from './components/Login.jsx'
 import ResultsDashboard from './components/ResultsDashboard.jsx'
 import ScanForm from './components/ScanForm.jsx'
 import ScanProgress from './components/ScanProgress.jsx'
+import ThemeToggle from './components/ThemeToggle.jsx'
+import {
+  AlertIcon,
+  BrandMark,
+  LogOutIcon,
+  ScanIcon,
+  ShieldIcon,
+  SpinnerIcon,
+} from './components/Icons.jsx'
 
 const Health = {
   LOADING: 'loading',
@@ -131,53 +140,155 @@ export default function App() {
     }
   }
 
+  const signOut = auth === Auth.READY && authRequired ? handleSignOut : null
+
   if (auth === Auth.LOADING) {
     return (
-      <main className="app">
-        <p className="app__tagline">Loading…</p>
-      </main>
+      <Shell>
+        <div className="screen-state" role="status">
+          <SpinnerIcon size={20} />
+          <p className="screen-state__text">Loading…</p>
+        </div>
+      </Shell>
     )
   }
 
   if (auth === Auth.LOGIN) {
-    return <Login onSuccess={() => setAuth(Auth.READY)} />
+    return (
+      <Shell>
+        <Login onSuccess={() => setAuth(Auth.READY)} />
+      </Shell>
+    )
   }
 
+  const idle = !scan && findings == null && !findingsLoading
+
   return (
-    <main className="app">
-      <header className="app__header">
-        {authRequired ? (
-          <button type="button" className="app__signout" onClick={handleSignOut}>
-            Sign out
-          </button>
-        ) : null}
-        <h1>AI Penetration Tester</h1>
-        <p className="app__tagline">
-          Coordinated open-source security scanning with plain-language AI explanations.
-        </p>
+    <Shell onSignOut={signOut}>
+      <header className="page-header">
+        <div className="page-header__text">
+          <h1 className="page-header__title">Run a security scan</h1>
+          <p className="page-header__tagline">
+            Coordinated open-source security scanning with plain-language AI explanations.
+          </p>
+        </div>
         <span className={`status status--${health}`} role="status" aria-live="polite">
           <span className="status__dot" aria-hidden="true" />
           <span className="status__label">{HEALTH_LABELS[health]}</span>
         </span>
       </header>
 
-      <p className="app__notice">
-        {config.demo_mode
-          ? 'Demo mode — scanning is restricted to the bundled Juice Shop target.'
-          : 'Authorized testing only — scan systems you own or have explicit permission to test.'}
+      <div className="workspace">
+        <aside className="workspace__side">
+          <section className="panel scan-panel" aria-labelledby="new-scan-title">
+            <div className="panel__head">
+              <h2 id="new-scan-title" className="panel__title">
+                New scan
+              </h2>
+            </div>
+
+            <p className={`notice${config.demo_mode ? ' notice--demo' : ''}`}>
+              <ShieldIcon size={16} className="notice__icon" />
+              <span>
+                {config.demo_mode
+                  ? 'Demo mode — scanning is restricted to the bundled Juice Shop target.'
+                  : 'Authorized testing only — scan systems you own or have explicit permission to test.'}
+              </span>
+            </p>
+
+            <ScanForm onSubmit={handleSubmit} busy={submitting} demoTarget={config.demo_target} />
+
+            {error ? (
+              <p className="callout callout--error" role="alert">
+                <AlertIcon size={16} className="callout__icon" />
+                <span>{error}</span>
+              </p>
+            ) : null}
+          </section>
+        </aside>
+
+        <div className="workspace__main">
+          <ScanProgress scan={scan} />
+
+          <ResultsDashboard scan={scan} findings={findings} loading={findingsLoading} />
+
+          {idle ? <IdleState /> : null}
+        </div>
+      </div>
+    </Shell>
+  )
+}
+
+const ENGINES = ['OWASP ZAP', 'Nuclei', 'Nikto', 'sqlmap', 'Semgrep', 'Schemathesis', 'Auth checks']
+
+function IdleState() {
+  return (
+    <section className="panel empty-state" aria-labelledby="idle-title">
+      <span className="empty-state__icon">
+        <ScanIcon size={22} />
+      </span>
+      <h2 id="idle-title" className="empty-state__title">
+        No scan yet
+      </h2>
+      <p className="empty-state__text">
+        Results appear here: a severity overview, filterable findings with AI explanations and
+        fixes, and downloadable HTML, PDF and JSON reports.
       </p>
+      <ul className="engine-list" aria-label="scanning engines">
+        {ENGINES.map((name) => (
+          <li key={name} className="chip">
+            {name}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
 
-      <ScanForm onSubmit={handleSubmit} busy={submitting} demoTarget={config.demo_target} />
-
-      {error ? (
-        <p className="app__error" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      <ScanProgress scan={scan} />
-
-      <ResultsDashboard scan={scan} findings={findings} loading={findingsLoading} />
-    </main>
+function Shell({ children, onSignOut = null }) {
+  return (
+    <div className="shell">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <header className="topbar">
+        <div className="topbar__inner">
+          <span className="brand">
+            <BrandMark size={28} />
+            <span className="brand__name">AI Pen Tester</span>
+          </span>
+          <div className="topbar__actions">
+            <ThemeToggle />
+            {onSignOut ? (
+              <button type="button" className="button button--secondary topbar__signout" onClick={onSignOut}>
+                <LogOutIcon size={16} />
+                <span className="topbar__signout-label">Sign out</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </header>
+      <main id="main" className="main" tabIndex={-1}>
+        {children}
+      </main>
+      <footer className="footer">
+        <div className="footer__inner">
+          <p className="footer__credit">
+            Built by{' '}
+            <a className="footer__link" href="https://hksingh.vercel.app" target="_blank" rel="noreferrer">
+              Himanshu Kumar Singh
+            </a>
+          </p>
+          <a
+            className="footer__link"
+            href="https://github.com/himavi/webpenetration"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Source on GitHub
+          </a>
+        </div>
+      </footer>
+    </div>
   )
 }

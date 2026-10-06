@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { SpinnerIcon } from './Icons.jsx'
+
 const SCAN_TYPES = [
-  { value: 'dast', label: 'Dynamic — live URL (DAST)' },
-  { value: 'sast', label: 'Static — source upload (SAST)' },
-  { value: 'both', label: 'Both — URL + source upload' },
+  { value: 'dast', label: 'Dynamic', tag: 'DAST', hint: 'Probe a live URL' },
+  { value: 'sast', label: 'Static', tag: 'SAST', hint: 'Analyse uploaded source' },
+  { value: 'both', label: 'Both', tag: 'DAST + SAST', hint: 'URL and source upload' },
 ]
 
 export default function ScanForm({ onSubmit, busy = false, demoTarget = null }) {
@@ -39,36 +41,52 @@ export default function ScanForm({ onSubmit, busy = false, demoTarget = null }) 
   }
 
   return (
-    <form className="scan-form" onSubmit={handleSubmit} noValidate>
+    <form className="form scan-form" onSubmit={handleSubmit} noValidate>
+      <fieldset className="field segmented-field">
+        <legend className="field__label">Scan type</legend>
+        <div className="segmented">
+          {SCAN_TYPES.map((option) => (
+            <label
+              key={option.value}
+              className={`segmented__option${scanType === option.value ? ' is-selected' : ''}`}
+            >
+              <input
+                type="radio"
+                name="scan_type"
+                value={option.value}
+                checked={scanType === option.value}
+                disabled={option.disabled}
+                onChange={(event) => setScanType(event.target.value)}
+              />
+              <span className="segmented__label">{option.label}</span>
+              <span className="segmented__hint">{option.hint}</span>
+              <span className="segmented__tag">{option.tag}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       {needsUrl && (
         <label className="field">
           <span className="field__label">Target URL</span>
           <input
+            className="input input--mono"
             type="url"
             name="target"
             placeholder="https://example.com"
             value={target}
             onChange={(event) => setTarget(event.target.value)}
             autoComplete="off"
+            spellCheck={false}
           />
         </label>
       )}
-
-      <label className="field">
-        <span className="field__label">Scan type</span>
-        <select value={scanType} onChange={(event) => setScanType(event.target.value)}>
-          {SCAN_TYPES.map((option) => (
-            <option key={option.value} value={option.value} disabled={option.disabled}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
 
       {needsFile && (
         <label className="field">
           <span className="field__label">Source code (.zip)</span>
           <input
+            className="file-input"
             type="file"
             name="source"
             accept=".zip"
@@ -78,7 +96,7 @@ export default function ScanForm({ onSubmit, busy = false, demoTarget = null }) 
         </label>
       )}
 
-      <label className="consent">
+      <label className={`consent${authorized ? ' is-checked' : ''}`}>
         <input
           type="checkbox"
           name="authorized"
@@ -90,7 +108,8 @@ export default function ScanForm({ onSubmit, busy = false, demoTarget = null }) 
         </span>
       </label>
 
-      <button type="submit" className="button" disabled={!canSubmit}>
+      <button type="submit" className="button button--primary button--block" disabled={!canSubmit}>
+        {busy ? <SpinnerIcon size={16} /> : null}
         {busy ? 'Starting…' : 'Start scan'}
       </button>
     </form>

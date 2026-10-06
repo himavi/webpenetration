@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { login } from '../api.js'
+import { AlertIcon, SpinnerIcon } from './Icons.jsx'
 
 export default function Login({ onSuccess }) {
   const [username, setUsername] = useState('')
@@ -24,47 +25,70 @@ export default function Login({ onSuccess }) {
   }
 
   return (
-    <main className="app app--login">
-      <header className="app__header">
-        <div className="login__lock" aria-hidden="true">&#128274;</div>
-        <h1>AI Penetration Tester</h1>
-        <p className="app__tagline">Sign in to access the security scanner.</p>
-      </header>
+    <section className="auth" aria-labelledby="login-title">
+      <div className="panel auth__card">
+        <header className="auth__header">
+          <span className="auth__badge" aria-hidden="true">
+            <LockIcon />
+          </span>
+          <h1 id="login-title" className="auth__title">
+            AI Penetration Tester
+          </h1>
+          <p className="auth__tagline">Sign in to access the security scanner.</p>
+        </header>
 
-      <form className="scan-form" onSubmit={handleSubmit}>
-        <label className="field">
-          <span className="field__label">Username</span>
-          <input
-            type="text"
-            name="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            autoComplete="username"
-            autoFocus
-          />
-        </label>
+        <form className="form" onSubmit={handleSubmit}>
+          <label className="field">
+            <span className="field__label">Username</span>
+            <input
+              className="input"
+              type="text"
+              name="username"
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              autoComplete="username"
+              autoFocus
+            />
+          </label>
 
-        <label className="field">
-          <span className="field__label">Password</span>
-          <input
-            type="password"
-            name="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-          />
-        </label>
+          <label className="field">
+            <span className="field__label">Password</span>
+            <input
+              className="input"
+              type="password"
+              name="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
 
-        {error ? (
-          <p className="app__error" role="alert">
-            {error}
-          </p>
-        ) : null}
+          {error ? (
+            <p className="callout callout--error" role="alert">
+              <AlertIcon size={16} className="callout__icon" />
+              <span>{error}</span>
+            </p>
+          ) : null}
 
-        <button type="submit" className="button" disabled={busy || !username || !password}>
-          {busy ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
-    </main>
+          <button
+            type="submit"
+            className="button button--primary button--block"
+            disabled={busy || !username || !password}
+          >
+            {busy ? <SpinnerIcon size={16} /> : null}
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+      </div>
+    </section>
+  )
+}
+
+function LockIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <rect x="4.5" y="10.5" width="15" height="10" rx="2" />
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+    </svg>
   )
 }

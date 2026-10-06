@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 
 import { reportUrl } from '../api.js'
 import FindingsList from './FindingsList.jsx'
+import { CheckCircleIcon, DownloadIcon, InfoIcon, SearchIcon, SpinnerIcon } from './Icons.jsx'
 import SeveritySummary from './SeveritySummary.jsx'
 
 const SEVERITY_RANK = { critical: 5, high: 4, medium: 3, low: 2, info: 1 }
@@ -34,39 +35,94 @@ export default function ResultsDashboard({ scan, findings, loading = false }) {
   }, [findings, severity, engine, vulnType, sort])
 
   if (loading) {
-    return <p className="findings__empty">loading findings…</p>
+    return (
+      <section className="panel dashboard dashboard--loading" aria-busy="true">
+        <p className="loading-line" role="status">
+          <SpinnerIcon size={16} />
+          Loading findings…
+        </p>
+        <div className="skeleton skeleton--bar" />
+        <div className="skeleton-tiles">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton skeleton--tile" />
+          ))}
+        </div>
+        <div className="skeleton skeleton--card" />
+        <div className="skeleton skeleton--card" />
+      </section>
+    )
   }
   if (findings == null) {
     return null
   }
 
+  const downloads = [
+    { format: 'html', label: 'HTML' },
+    { format: 'pdf', label: 'PDF' },
+    { format: 'json', label: 'JSON' },
+  ]
+
   return (
     <section className="dashboard" aria-label="results dashboard">
-      <SeveritySummary findings={findings} />
-
-      {findings.length === 0 ? (
-        <p className="findings__empty">No findings were reported for this scan.</p>
-      ) : (
-        <>
-          {scan?.id != null && (
-            <div className="downloads">
-              <span className="downloads__label">Download report:</span>
-              <a className="button button--ghost" href={reportUrl(scan.id, 'html')} target="_blank" rel="noreferrer">
-                HTML
-              </a>
-              <a className="button button--ghost" href={reportUrl(scan.id, 'pdf')} target="_blank" rel="noreferrer">
-                PDF
-              </a>
-              <a className="button button--ghost" href={reportUrl(scan.id, 'json')} target="_blank" rel="noreferrer">
-                JSON
-              </a>
+      <div className="panel overview">
+        <div className="overview__head">
+          <div>
+            <h2 className="panel__title">Results</h2>
+            <p className="overview__meta">
+              {findings.length} {findings.length === 1 ? 'finding' : 'findings'}
+              {scan?.target ? (
+                <>
+                  {' '}
+                  · <code>{scan.target}</code>
+                </>
+              ) : null}
+            </p>
+          </div>
+          {findings.length > 0 && scan?.id != null && (
+            <div className="downloads" role="group" aria-labelledby="downloads-label">
+              <span id="downloads-label" className="downloads__label">
+                Download report
+              </span>
+              <div className="downloads__buttons">
+                {downloads.map(({ format, label }) => (
+                  <a
+                    key={format}
+                    className="button button--secondary button--sm"
+                    href={reportUrl(scan.id, format)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <DownloadIcon size={15} />
+                    {label}
+                  </a>
+                ))}
+              </div>
             </div>
           )}
+        </div>
 
-          <div className="filters">
-            <label>
-              <span>Severity</span>
-              <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
+        <SeveritySummary findings={findings} />
+      </div>
+
+      {findings.length === 0 ? (
+        <div className="panel empty-state empty-state--compact">
+          {scan?.status === 'failed' ? (
+            <span className="empty-state__icon">
+              <InfoIcon size={22} />
+            </span>
+          ) : (
+            <span className="empty-state__icon empty-state__icon--ok">
+              <CheckCircleIcon size={22} />
+            </span>
+          )}
+          <p className="empty-state__text">No findings were reported for this scan.</p>
+        </div>
+      ) : (
+        <>
+          <div className="filters" role="search" aria-label="filter findings">
+            <label className="filter">
+              <span className="filter__label">Severity</span>
+              <select className="input select" value={severity} onChange={(e) => setSeverity(e.target.value)}>
                 <option value="all">all</option>
                 {SEVERITIES.map((s) => (
                   <option key={s} value={s}>
@@ -75,9 +131,9 @@ export default function ResultsDashboard({ scan, findings, loading = false }) {
                 ))}
               </select>
             </label>
-            <label>
-              <span>Engine</span>
-              <select value={engine} onChange={(e) => setEngine(e.target.value)}>
+            <label className="filter">
+              <span className="filter__label">Engine</span>
+              <select className="input select" value={engine} onChange={(e) => setEngine(e.target.value)}>
                 <option value="all">all</option>
                 {engines.map((e2) => (
                   <option key={e2} value={e2}>
@@ -86,18 +142,22 @@ export default function ResultsDashboard({ scan, findings, loading = false }) {
                 ))}
               </select>
             </label>
-            <label>
-              <span>Type</span>
-              <input
-                type="text"
-                placeholder="filter by type"
-                value={vulnType}
-                onChange={(e) => setVulnType(e.target.value)}
-              />
+            <label className="filter filter--grow">
+              <span className="filter__label">Type</span>
+              <span className="input-icon">
+                <SearchIcon size={16} />
+                <input
+                  className="input"
+                  type="text"
+                  placeholder="filter by type"
+                  value={vulnType}
+                  onChange={(e) => setVulnType(e.target.value)}
+                />
+              </span>
             </label>
-            <label>
-              <span>Sort</span>
-              <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <label className="filter">
+              <span className="filter__label">Sort</span>
+              <select className="input select" value={sort} onChange={(e) => setSort(e.target.value)}>
                 <option value="severity">severity</option>
                 <option value="engine">engine</option>
               </select>
