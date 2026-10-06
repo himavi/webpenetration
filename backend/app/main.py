@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from app import __version__ as APP_VERSION
 from app.database import init_db
-from app.routers import auth, dev, reports, scans, upload
+from app.routers import auth, dev, reports, sample, scans, upload
 
 SERVICE_NAME = "ai-pentester-backend"
 
@@ -79,6 +79,7 @@ app.include_router(upload.router)
 app.include_router(reports.router)
 app.include_router(auth.router)
 app.include_router(dev.router)
+app.include_router(sample.router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["system"])

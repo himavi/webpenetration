@@ -7,7 +7,9 @@ import {
   fetchConfig,
   fetchHealth,
   getFindings,
+  getSample,
   getToken,
+  sampleReportUrl,
   setUnauthorizedHandler,
   subscribeScan,
 } from './api.js'
@@ -53,6 +55,17 @@ export default function App() {
   const [findingsLoading, setFindingsLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [sample, setSample] = useState(null)
+  const [sampleError, setSampleError] = useState(null)
+
+  async function openSample() {
+    setSampleError(null)
+    try {
+      setSample(await getSample())
+    } catch (e) {
+      setSampleError(e.message)
+    }
+  }
   const unsubscribeRef = useRef(null)
 
   // Determine whether a login is needed, and bounce back to login on any 401.
@@ -153,10 +166,24 @@ export default function App() {
     )
   }
 
+  if (auth === Auth.LOGIN && sample) {
+    return (
+      <Shell>
+        <SampleView sample={sample} onBack={() => setSample(null)} />
+      </Shell>
+    )
+  }
+
   if (auth === Auth.LOGIN) {
     return (
       <Shell>
-        <Login onSuccess={() => setAuth(Auth.READY)} />
+        <Login onSuccess={() => setAuth(Auth.READY)} onViewSample={openSample} />
+        {sampleError ? (
+          <p className="callout callout--error login__sample-error" role="alert">
+            <AlertIcon size={16} className="callout__icon" />
+            <span>{sampleError}</span>
+          </p>
+        ) : null}
       </Shell>
     )
   }
@@ -216,6 +243,31 @@ export default function App() {
         </div>
       </div>
     </Shell>
+  )
+}
+
+function SampleView({ sample, onBack }) {
+  return (
+    <>
+      <header className="page-header">
+        <div className="page-header__text">
+          <h1 className="page-header__title">Sample report</h1>
+          <p className="page-header__tagline">
+            A finished example scan of OWASP Juice Shop, a deliberately vulnerable practice app. Read-only; sign in to
+            run your own scan.
+          </p>
+        </div>
+        <div className="sample-actions">
+          <a className="button button--secondary button--sm" href={sampleReportUrl()} target="_blank" rel="noreferrer">
+            Open HTML report
+          </a>
+          <button type="button" className="button button--primary button--sm" onClick={onBack}>
+            Sign in
+          </button>
+        </div>
+      </header>
+      <ResultsDashboard scan={sample.scan} findings={sample.findings} />
+    </>
   )
 }
 

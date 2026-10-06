@@ -1561,3 +1561,27 @@ a {
     display: none;
   }
 }
+
+/* Public sample report entry point (login card) and its view */
+.login__sample {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0.75rem;
+}
+.login__sample-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-2);
+}
+.login__sample-error {
+  max-width: 400px;
+  margin: 1rem auto 0;
+}
+.sample-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}

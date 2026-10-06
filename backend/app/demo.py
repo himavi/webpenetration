@@ -62,68 +62,7 @@ def seed_sample_data():
         session.add(scan)
         session.flush()
 
-        sample_findings = [
-            Finding(
-                scan_id=scan.id,
-                engine="nuclei",
-                vuln_type="xss-reflected",
-                severity=Severity.HIGH,
-                title="Reflected XSS in search parameter",
-                location="http://juiceshop:3000/#/search?q=<script>alert(1)</script>",
-                affected_param="q",
-                evidence="Payload reflected unencoded in response body.",
-                cwe_id="CWE-79",
-                owasp_category="A03:2021-Injection",
-                remediation="Contextually output-encode user input.",
-                explanation="Cross-site scripting (XSS) lets an attacker inject script that runs in other users' browsers.",
-                impact="Session hijacking, credential theft, or defacement.",
-                ai_remediation="Apply context-aware output encoding and a strict Content-Security-Policy.",
-            ),
-            Finding(
-                scan_id=scan.id,
-                engine="zap",
-                vuln_type="sql-injection",
-                severity=Severity.CRITICAL,
-                title="SQL Injection in login endpoint",
-                location="http://juiceshop:3000/rest/user/login",
-                affected_param="email",
-                evidence="' OR 1=1-- returned 200 with admin session",
-                cwe_id="CWE-89",
-                owasp_category="A03:2021-Injection",
-                remediation="Use parameterized queries.",
-                explanation="SQL injection allows arbitrary database queries.",
-                impact="Full database compromise, authentication bypass.",
-                ai_remediation="Replace string concatenation with parameterized/prepared statements.",
-            ),
-            Finding(
-                scan_id=scan.id,
-                engine="nikto",
-                vuln_type="nikto-server-info",
-                severity=Severity.LOW,
-                title="Server version disclosed in headers",
-                location="http://juiceshop:3000/",
-                cwe_id="CWE-200",
-                owasp_category="A05:2021-Security Misconfiguration",
-                remediation="Remove or suppress server version banners.",
-                explanation="The server discloses its software version in HTTP headers.",
-                impact="Aids attacker reconnaissance for targeted exploits.",
-                ai_remediation="Configure the web server to suppress version information.",
-            ),
-            Finding(
-                scan_id=scan.id,
-                engine="auth-checks",
-                vuln_type="missing-security-headers",
-                severity=Severity.MEDIUM,
-                title="Missing Content-Security-Policy header",
-                location="http://juiceshop:3000/",
-                cwe_id="CWE-693",
-                owasp_category="A05:2021-Security Misconfiguration",
-                remediation="Add a strict Content-Security-Policy header.",
-                explanation="A protective HTTP security header is missing.",
-                impact="Makes XSS and injection attacks easier to exploit.",
-                ai_remediation="Define a restrictive CSP that blocks inline scripts and restricts sources.",
-            ),
-        ]
+        sample_findings = _sample_findings(scan.id)
         session.add_all(sample_findings)
         session.flush()
 
@@ -136,3 +75,106 @@ def seed_sample_data():
         session.add(Report(scan_id=scan.id, format=ReportFormat.JSON, payload=json.dumps(data, indent=2)))
         session.add(Report(scan_id=scan.id, format=ReportFormat.HTML, payload=render_html(data)))
         session.commit()
+
+def _sample_findings(scan_id):
+    """The fixed example findings shown in the demo (seeded report and /api/sample)."""
+    from app.models import Finding, Severity
+
+    return [
+        Finding(
+            scan_id=scan_id,
+            engine="nuclei",
+            vuln_type="xss-reflected",
+            severity=Severity.HIGH,
+            title="Reflected XSS in search parameter",
+            location="http://juiceshop:3000/#/search?q=<script>alert(1)</script>",
+            affected_param="q",
+            evidence="Payload reflected unencoded in response body.",
+            cwe_id="CWE-79",
+            owasp_category="A03:2021-Injection",
+            remediation="Contextually output-encode user input.",
+            explanation="Cross-site scripting (XSS) lets an attacker inject script that runs in other users' browsers.",
+            impact="Session hijacking, credential theft, or defacement.",
+            ai_remediation="Apply context-aware output encoding and a strict Content-Security-Policy.",
+        ),
+        Finding(
+            scan_id=scan_id,
+            engine="zap",
+            vuln_type="sql-injection",
+            severity=Severity.CRITICAL,
+            title="SQL Injection in login endpoint",
+            location="http://juiceshop:3000/rest/user/login",
+            affected_param="email",
+            evidence="' OR 1=1-- returned 200 with admin session",
+            cwe_id="CWE-89",
+            owasp_category="A03:2021-Injection",
+            remediation="Use parameterized queries.",
+            explanation="SQL injection allows arbitrary database queries.",
+            impact="Full database compromise, authentication bypass.",
+            ai_remediation="Replace string concatenation with parameterized/prepared statements.",
+        ),
+        Finding(
+            scan_id=scan_id,
+            engine="nikto",
+            vuln_type="nikto-server-info",
+            severity=Severity.LOW,
+            title="Server version disclosed in headers",
+            location="http://juiceshop:3000/",
+            cwe_id="CWE-200",
+            owasp_category="A05:2021-Security Misconfiguration",
+            remediation="Remove or suppress server version banners.",
+            explanation="The server discloses its software version in HTTP headers.",
+            impact="Aids attacker reconnaissance for targeted exploits.",
+            ai_remediation="Configure the web server to suppress version information.",
+        ),
+        Finding(
+            scan_id=scan_id,
+            engine="auth-checks",
+            vuln_type="missing-security-headers",
+            severity=Severity.MEDIUM,
+            title="Missing Content-Security-Policy header",
+            location="http://juiceshop:3000/",
+            cwe_id="CWE-693",
+            owasp_category="A05:2021-Security Misconfiguration",
+            remediation="Add a strict Content-Security-Policy header.",
+            explanation="A protective HTTP security header is missing.",
+            impact="Makes XSS and injection attacks easier to exploit.",
+            ai_remediation="Define a restrictive CSP that blocks inline scripts and restricts sources.",
+        ),
+    ]
+
+
+def sample_payload() -> dict:
+    """The example report as plain data, built in memory (no database access).
+
+    Served without login at GET /api/sample so visitors can browse a finished
+    report; running a scan still requires signing in.
+    """
+    from app.models import Scan, ScanStatus, ScanType
+
+    scan = Scan(
+        target="http://juiceshop:3000",
+        scan_type=ScanType.DAST,
+        status=ScanStatus.DONE,
+        progress=100,
+        message="done",
+    )
+    findings = _sample_findings(None)
+    scan_data = scan.model_dump(mode="json")
+    scan_data["id"] = None
+    return {
+        "scan": scan_data,
+        "findings": [{**f.model_dump(mode="json"), "id": i, "scan_id": None} for i, f in enumerate(findings, 1)],
+    }
+
+
+def sample_report_html() -> str:
+    from app.models import Scan, ScanStatus, ScanType
+    from app.reports import build_report_data, render_html
+
+    # In-memory only; id 0 never matches a stored scan.
+    scan = Scan(id=0, target="http://juiceshop:3000", scan_type=ScanType.DAST, status=ScanStatus.DONE, progress=100, message="done")
+    findings = _sample_findings(0)
+    for i, finding in enumerate(findings, 1):
+        finding.id = i
+    return render_html(build_report_data(scan, findings))

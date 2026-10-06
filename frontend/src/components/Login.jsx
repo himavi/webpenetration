@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { login } from '../api.js'
 import { AlertIcon, SpinnerIcon } from './Icons.jsx'
 
-export default function Login({ onSuccess }) {
+export default function Login({ onSuccess, onViewSample }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
@@ -79,6 +79,14 @@ export default function Login({ onSuccess }) {
             {busy ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+        {onViewSample ? (
+          <div className="login__sample">
+            <p className="login__sample-text">No account? Browse a finished example report.</p>
+            <button type="button" className="button button--secondary button--block" onClick={onViewSample}>
+              View sample report
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   )

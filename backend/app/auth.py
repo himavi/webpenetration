@@ -56,7 +56,12 @@ def verify_token(token: str) -> bool:
     if not token:
         return False
     try:
-        decoded = base64.urlsafe_b64decode(token.encode()).decode()
+        raw = token.encode()
+        decoded_bytes = base64.urlsafe_b64decode(raw)
+        # The decoder silently skips stray characters; require the canonical encoding.
+        if base64.urlsafe_b64encode(decoded_bytes) != raw:
+            return False
+        decoded = decoded_bytes.decode()
         subject, expiry, signature = decoded.split("|")
         payload = f"{subject}|{expiry}"
         expected = hmac.new(_signing_secret(), payload.encode(), hashlib.sha256).hexdigest()
@@ -70,6 +75,8 @@ def verify_token(token: str) -> bool:
 def _is_gated(path: str) -> bool:
     """Gate the API surface and docs; the static UI and health stay public."""
     if path == "/health" or path.startswith("/api/auth/"):
+        return False
+    if path in ("/api/sample", "/api/sample/report.html"):  # fixed example report only
         return False
     return path.startswith("/api") or path in ("/docs", "/redoc", "/openapi.json")
 

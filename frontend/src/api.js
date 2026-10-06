@@ -186,6 +186,17 @@ export async function getFindings(scanId) {
   return response.json()
 }
 
+// The fixed example report: public, read-only, no login needed.
+export async function getSample() {
+  const response = await fetch(`${API_BASE_URL}/api/sample`)
+  if (!response.ok) throw new Error(`Could not load the sample report (${response.status})`)
+  return response.json()
+}
+
+export function sampleReportUrl() {
+  return `${API_BASE_URL}/api/sample/report.html`
+}
+
 // Direct download URL for a generated report (html | pdf | json). The token is
 // passed as a query param since these are opened as plain links (no headers).
 export function reportUrl(scanId, format) {
